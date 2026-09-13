@@ -3,12 +3,12 @@ import React, { useState } from 'react';
 import {
   FlatList,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { CATEGORY_ORDER, EXERCISES, getExercise } from '../constants/exercises';
 import { useT } from '../i18n/useT';
@@ -32,7 +32,7 @@ export function ProgramScreen() {
   const assignedSlugs = new Set(dayExercises.map((e) => e.exerciseSlug));
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <AppHeader />
 
@@ -134,7 +134,7 @@ export function ProgramScreen() {
 
       {pickerOpen && (
         <View style={styles.pickerOverlay}>
-          <SafeAreaView style={styles.pickerSafe}>
+          <SafeAreaView style={styles.pickerSafe} edges={['top', 'left', 'right']}>
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>{t('program.pickExercise')}</Text>
               <Pressable onPress={() => setPickerOpen(false)} style={styles.pickerClose}>

@@ -1,12 +1,16 @@
-import React, { useMemo } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
+import { AuthOverlay } from '../components/AuthOverlay';
 import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
 import { EXERCISES } from '../constants/exercises';
 import { useT } from '../i18n/useT';
+import { supabase } from '../lib/supabase';
 import { unitKeyFor } from '../lib/metric';
 import { longestStreakDays, totalVolumeKg, trainingDayKeys } from '../lib/stats';
+import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useWorkoutStore } from '../store/workoutStore';
@@ -26,6 +30,9 @@ export function ProfileScreen() {
 
   const sets = useWorkoutStore((s) => s.sets);
   const personalBestFor = useWorkoutStore((s) => s.personalBestFor);
+
+  const session = useAuthStore((s) => s.session);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const stats = useMemo(
     () => ({
@@ -53,14 +60,17 @@ export function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <AppHeader />
 
         <View style={styles.section}>
           <View style={styles.topRow}>
             <Text style={styles.eyebrow}>{t('profile.yourAccount')}</Text>
-            <StatusPill label={t('profile.active')} />
+            <StatusPill
+              label={session ? t('profile.synced') : t('profile.local')}
+              color={session ? colors.lime : colors.muted}
+            />
           </View>
 
           <View style={styles.identityRow}>
@@ -69,12 +79,22 @@ export function ProfileScreen() {
             </View>
             <View style={styles.identityCol}>
               <Text style={styles.name}>{profile.displayName || t('profile.unnamedLifter')}</Text>
-              <Text style={styles.memberSince}>
-                {t('profile.memberSince', { year: profile.memberSinceYear })}
+              <Text style={styles.memberSince} numberOfLines={1} ellipsizeMode="tail">
+                {session ? session.user.email : t('profile.memberSince', { year: profile.memberSinceYear })}
               </Text>
             </View>
+            <Pressable
+              onPress={() => (session ? supabase.auth.signOut() : setAuthOpen(true))}
+              style={styles.signInButton}
+            >
+              <Text style={styles.signInButtonText}>
+                {session ? t('profile.signOut') : t('profile.signIn')}
+              </Text>
+            </Pressable>
           </View>
         </View>
+
+        {authOpen && <AuthOverlay onClose={() => setAuthOpen(false)} />}
 
         <View style={styles.section}>
           <Text style={styles.label}>{t('profile.displayName')}</Text>
@@ -208,6 +228,8 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: colors.lime, fontSize: 22, fontWeight: '800' },
   identityCol: { flex: 1 },
+  signInButton: { paddingHorizontal: 12, paddingVertical: 8 },
+  signInButtonText: { color: colors.lime, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   name: { color: colors.foreground, fontSize: 24, fontFamily: fonts.display },
   memberSince: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: 2 },
   label: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 8, marginTop: 16 },

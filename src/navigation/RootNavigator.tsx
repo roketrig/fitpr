@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DarkTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { CalendarDays, Dumbbell, Trophy, UserRound } from 'lucide-react-native';
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '../i18n/useT';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -32,6 +33,7 @@ const ICONS = {
 
 export function RootNavigator() {
   const { t } = useT();
+  const insets = useSafeAreaInsets();
 
   return (
     <NavigationContainer theme={navTheme}>
@@ -41,8 +43,8 @@ export function RootNavigator() {
           tabBarStyle: {
             backgroundColor: colors.background,
             borderTopColor: colors.border,
-            height: 64,
-            paddingBottom: 8,
+            height: 56 + insets.bottom,
+            paddingBottom: 8 + insets.bottom,
             paddingTop: 8,
           },
           tabBarActiveTintColor: colors.lime,

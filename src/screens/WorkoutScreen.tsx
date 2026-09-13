@@ -4,12 +4,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { ExerciseVisual } from '../components/ExerciseVisual';
 import { NumberStepperCard } from '../components/NumberStepperCard';
@@ -35,13 +35,11 @@ export function WorkoutScreen() {
   const today = new Date().getDay() as DayOfWeek;
   const programToday = useProgramStore((s) => s.getDay(today));
   const isProgramMode = programToday.length > 0;
-  // Today's assigned exercises come first (with their targets); swiping past
-  // them still reaches every other exercise, it's just not the default view.
+  // A day with a program only browses that day's exercises — mixing in the
+  // full catalog defeats the point of having set up a program for today.
   const activeSlugs: ExerciseSlug[] = useMemo(() => {
-    const programSlugs = programToday.map((p) => p.exerciseSlug);
-    if (!isProgramMode) return EXERCISES.map((e) => e.slug);
-    const rest = EXERCISES.map((e) => e.slug).filter((slug) => !programSlugs.includes(slug));
-    return [...programSlugs, ...rest];
+    if (isProgramMode) return programToday.map((p) => p.exerciseSlug);
+    return EXERCISES.map((e) => e.slug);
   }, [programToday, isProgramMode]);
 
   const [exerciseIndex, setExerciseIndex] = useState(0);
@@ -123,7 +121,7 @@ export function WorkoutScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <AppHeader />
 

@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getExercise } from '../constants/exercises';
 import { getNewlyUnlockedAchievements, STREAK_ACHIEVEMENTS } from '../constants/achievements';
+import { getCurrentUserId } from './authStore';
+import { supabase } from '../lib/supabase';
 import { currentStreakDays } from '../lib/stats';
 import { primaryValueOf } from '../lib/metric';
 import { ExerciseSlug, Gender, WorkoutSet } from '../types';
@@ -27,6 +29,34 @@ interface WorkoutState {
     reps: number,
     gender: Gender | null
   ) => AddSetResult;
+}
+
+function syncSetToCloud(set: WorkoutSet) {
+  const userId = getCurrentUserId();
+  if (!userId) return;
+  supabase
+    .from('workout_sets')
+    .insert({
+      user_id: userId,
+      exercise_slug: set.exerciseSlug,
+      weight_kg: set.weightKg,
+      reps: set.reps,
+      is_pr: set.isPr,
+      performed_at: set.performedAt,
+    })
+    .then(({ error }) => error && console.warn('Supabase set insert failed', error));
+}
+
+function syncBadgesToCloud(slugs: string[]) {
+  const userId = getCurrentUserId();
+  if (!userId || slugs.length === 0) return;
+  supabase
+    .from('unlocked_achievements')
+    .upsert(
+      slugs.map((achievement_slug) => ({ user_id: userId, achievement_slug })),
+      { onConflict: 'user_id,achievement_slug' }
+    )
+    .then(({ error }) => error && console.warn('Supabase badge upsert failed', error));
 }
 
 export const useWorkoutStore = create<WorkoutState>()(
@@ -94,6 +124,9 @@ export const useWorkoutStore = create<WorkoutState>()(
           sets: updatedSets,
           unlockedAchievementSlugs: [...alreadyUnlocked, ...newBadges.map((b) => b.slug)],
         });
+
+        syncSetToCloud(newSet);
+        syncBadgesToCloud(newBadges.map((b) => b.slug));
 
         return { isPr, newBadges };
       },

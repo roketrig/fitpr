@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { FlatList, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AchievementCard } from '../components/AchievementCard';
 import { AppHeader } from '../components/AppHeader';
 import { StatusPill } from '../components/StatusPill';
@@ -104,7 +105,7 @@ export function AchievementsScreen() {
 
   if (!gender) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <AppHeader />
         <Text style={styles.emptyText}>{t('achievements.setGenderPrompt')}</Text>
       </SafeAreaView>
@@ -112,7 +113,7 @@ export function AchievementsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <FlatList
         data={rows}
         keyExtractor={(item) => item.key}
