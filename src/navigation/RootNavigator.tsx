@@ -1,0 +1,68 @@
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { DarkTheme, NavigationContainer, Theme } from '@react-navigation/native';
+import { CalendarDays, Dumbbell, Trophy, UserRound } from 'lucide-react-native';
+import React from 'react';
+import { useT } from '../i18n/useT';
+import { AchievementsScreen } from '../screens/AchievementsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { ProgramScreen } from '../screens/ProgramScreen';
+import { WorkoutScreen } from '../screens/WorkoutScreen';
+import { colors } from '../theme';
+
+const Tab = createBottomTabNavigator();
+
+const navTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: colors.background,
+    card: colors.background,
+    border: colors.border,
+    primary: colors.lime,
+    text: colors.foreground,
+  },
+};
+
+const ICONS = {
+  Workout: Dumbbell,
+  Program: CalendarDays,
+  Achievements: Trophy,
+  Profile: UserRound,
+} as const;
+
+export function RootNavigator() {
+  const { t } = useT();
+
+  return (
+    <NavigationContainer theme={navTheme}>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            height: 64,
+            paddingBottom: 8,
+            paddingTop: 8,
+          },
+          tabBarActiveTintColor: colors.lime,
+          tabBarInactiveTintColor: colors.muted,
+          tabBarLabelStyle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+          tabBarIcon: ({ color, size }) => {
+            const Icon = ICONS[route.name as keyof typeof ICONS];
+            return <Icon color={color} size={size ?? 20} />;
+          },
+        })}
+      >
+        <Tab.Screen name="Workout" component={WorkoutScreen} options={{ tabBarLabel: t('nav.workout') }} />
+        <Tab.Screen name="Program" component={ProgramScreen} options={{ tabBarLabel: t('nav.program') }} />
+        <Tab.Screen
+          name="Achievements"
+          component={AchievementsScreen}
+          options={{ tabBarLabel: t('nav.achievements') }}
+        />
+        <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('nav.profile') }} />
+      </Tab.Navigator>
+    </NavigationContainer>
+  );
+}
