@@ -4,7 +4,9 @@ export type ExerciseSlug =
   // chest
   | 'bench_press'
   | 'incline_bench_press'
+  | 'decline_bench_press'
   | 'dumbbell_bench_press'
+  | 'dumbbell_fly'
   | 'chest_press_machine'
   | 'cable_fly'
   | 'push_up'
@@ -14,6 +16,8 @@ export type ExerciseSlug =
   | 'lat_pulldown'
   | 'seated_cable_row'
   | 'dumbbell_row'
+  | 't_bar_row'
+  | 'inverted_row'
   | 'pull_up'
   // legs
   | 'squat'
@@ -23,12 +27,16 @@ export type ExerciseSlug =
   | 'leg_extension'
   | 'leg_curl'
   | 'bulgarian_split_squat'
+  | 'lunge'
+  | 'hack_squat'
   | 'hip_thrust'
   | 'calf_raise'
   // shoulders
   | 'overhead_press'
   | 'dumbbell_shoulder_press'
+  | 'arnold_press'
   | 'lateral_raise'
+  | 'front_raise'
   | 'face_pull'
   | 'rear_delt_fly'
   // arms
@@ -36,13 +44,23 @@ export type ExerciseSlug =
   | 'dumbbell_curl'
   | 'hammer_curl'
   | 'triceps_pushdown'
+  | 'skull_crusher'
+  | 'overhead_triceps_extension'
   | 'dip'
   // core
+  | 'crunch'
   | 'plank'
   | 'hanging_leg_raise'
-  | 'cable_crunch';
+  | 'russian_twist'
+  | 'ab_wheel_rollout'
+  | 'cable_crunch'
+  // cardio
+  | 'burpee'
+  | 'mountain_climber'
+  | 'jumping_jack'
+  | 'kettlebell_swing';
 
-export type CategoryKey = 'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'core';
+export type CategoryKey = 'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'core' | 'cardio';
 
 export type EquipmentType = 'barbell' | 'dumbbell' | 'machine' | 'bodyweight';
 
