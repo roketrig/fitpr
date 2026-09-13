@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { getCurrentUserId } from './authStore';
+import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import { Language } from '../types';
 

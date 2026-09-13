@@ -137,3 +137,29 @@ export async function syncOnSignIn(userId: string) {
     await pushLocalDataToCloud(userId);
   }
 }
+
+// Local (AsyncStorage) state is per-device, not per-account — if we didn't
+// wipe it on sign-out, whatever was still sitting locally (a guest session's
+// data, or the previous account's) would get treated as "local data to
+// migrate" the next time someone signs into a *different* account on this
+// device, leaking one account's workouts/program into another's.
+function resetLocalDataForSignOut() {
+  useWorkoutStore.setState({ sets: [], unlockedAchievementSlugs: [] });
+  useProgramStore.setState({ week: emptyWeek() });
+  useProfileStore.setState((state) => ({
+    profile: {
+      displayName: '',
+      gender: null,
+      heightCm: null,
+      weightKg: null,
+      memberSinceYear: state.profile.memberSinceYear,
+    },
+  }));
+  useSettingsStore.setState({ language: 'en' });
+}
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'SIGNED_OUT') {
+    resetLocalDataForSignOut();
+  }
+});

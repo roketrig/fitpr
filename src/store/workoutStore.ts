@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getExercise } from '../constants/exercises';
 import { getNewlyUnlockedAchievements, STREAK_ACHIEVEMENTS } from '../constants/achievements';
-import { getCurrentUserId } from './authStore';
+import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import { currentStreakDays } from '../lib/stats';
 import { primaryValueOf } from '../lib/metric';
