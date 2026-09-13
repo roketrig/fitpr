@@ -17,16 +17,18 @@ export function NumberStepperCard({ label, value, unit, onDecrement, onIncrement
       <Text style={styles.label}>{label}</Text>
       <View style={styles.row}>
         <Pressable
-          style={styles.button}
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           onPress={onDecrement}
+          hitSlop={8}
           accessibilityLabel={`Decrease ${label}`}
         >
           <Minus size={18} color={colors.lime} strokeWidth={3} />
         </Pressable>
         <Text style={styles.value}>{value}</Text>
         <Pressable
-          style={styles.button}
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           onPress={onIncrement}
+          hitSlop={8}
           accessibilityLabel={`Increase ${label}`}
         >
           <Plus size={18} color={colors.lime} strokeWidth={3} />
@@ -45,6 +47,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 14,
     paddingVertical: 16,
+    paddingHorizontal: 6,
     alignItems: 'center',
   },
   label: {
@@ -54,19 +57,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 10,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   button: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
+  buttonPressed: { backgroundColor: colors.border },
   value: {
     color: colors.foreground,
-    fontSize: 32,
+    fontSize: 28,
     fontFamily: fonts.display,
-    minWidth: 70,
+    minWidth: 48,
     textAlign: 'center',
   },
   unit: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: 10 },

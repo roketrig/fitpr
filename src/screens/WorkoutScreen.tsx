@@ -35,9 +35,14 @@ export function WorkoutScreen() {
   const today = new Date().getDay() as DayOfWeek;
   const programToday = useProgramStore((s) => s.getDay(today));
   const isProgramMode = programToday.length > 0;
-  const activeSlugs: ExerciseSlug[] = isProgramMode
-    ? programToday.map((p) => p.exerciseSlug)
-    : EXERCISES.map((e) => e.slug);
+  // Today's assigned exercises come first (with their targets); swiping past
+  // them still reaches every other exercise, it's just not the default view.
+  const activeSlugs: ExerciseSlug[] = useMemo(() => {
+    const programSlugs = programToday.map((p) => p.exerciseSlug);
+    if (!isProgramMode) return EXERCISES.map((e) => e.slug);
+    const rest = EXERCISES.map((e) => e.slug).filter((slug) => !programSlugs.includes(slug));
+    return [...programSlugs, ...rest];
+  }, [programToday, isProgramMode]);
 
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const activeSlug = activeSlugs[Math.min(exerciseIndex, activeSlugs.length - 1)];
