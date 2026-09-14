@@ -93,12 +93,16 @@ export interface Achievement {
   threshold: number;
 }
 
+export type Role = 'student' | 'pt';
+
 export interface Profile {
   displayName: string;
   gender: Gender | null;
   heightCm: number | null;
   weightKg: number | null;
   memberSinceYear: number;
+  role: Role;
+  referralCode: string | null;
 }
 
 // 0 = Sunday ... 6 = Saturday, matching JS Date#getDay().
@@ -111,3 +115,19 @@ export interface ProgramExercise {
 }
 
 export type WeeklyProgram = Record<DayOfWeek, ProgramExercise[]>;
+
+export interface CoachLink {
+  ptId: string;
+  displayName: string;
+}
+
+export interface StudentSummary {
+  studentId: string;
+  displayName: string;
+  linkedAt: string;
+}
+
+export interface NutritionTarget {
+  calories: number | null;
+  proteinG: number | null;
+}

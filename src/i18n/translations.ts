@@ -194,6 +194,31 @@ const en = {
   'program.setsLabel': 'SETS',
   'program.repsLabel': 'REPS',
   'program.secondsLabel': 'SEC',
+
+  'coach.title': 'COACHING',
+  'coach.becomePt': 'BECOME A TRAINER',
+  'coach.becomePtHint': 'Get a referral code your clients can use to link to you.',
+  'coach.yourCode': 'YOUR REFERRAL CODE',
+  'coach.webHint': 'Open this app in a browser on a computer to manage your clients.',
+  'coach.linkTitle': 'LINK TO A COACH',
+  'coach.codePlaceholder': 'Enter their code',
+  'coach.link': 'LINK',
+  'coach.linked': 'YOUR COACH',
+  'coach.nutritionTitle': 'NUTRITION TARGET',
+  'coach.calories': 'CALORIES',
+  'coach.protein': 'PROTEIN',
+  'coach.noTarget': 'Your coach hasn’t set a nutrition target yet.',
+
+  'pt.dashboardTitle': 'CLIENTS',
+  'pt.yourCode': 'Your referral code',
+  'pt.noStudents': 'No clients linked yet. Share your referral code to get started.',
+  'pt.selectStudent': 'Select a client to manage their plan',
+  'pt.program': 'WEEKLY PROGRAM',
+  'pt.nutrition': 'NUTRITION TARGET',
+  'pt.save': 'SAVE',
+  'pt.saved': 'Saved',
+  'pt.signOut': 'SIGN OUT',
+  'pt.backToClients': 'BACK TO CLIENTS',
 };
 
 const tr: Record<keyof typeof en, string> = {
@@ -280,6 +305,31 @@ const tr: Record<keyof typeof en, string> = {
   'program.setsLabel': 'SET',
   'program.repsLabel': 'TEKRAR',
   'program.secondsLabel': 'SN',
+
+  'coach.title': 'KOÇLUK',
+  'coach.becomePt': 'ANTRENÖR OL',
+  'coach.becomePtHint': 'Danışanlarının sana bağlanmak için kullanacağı bir referans kodu al.',
+  'coach.yourCode': 'REFERANS KODUN',
+  'coach.webHint': 'Danışanlarını yönetmek için bu uygulamayı bilgisayarda tarayıcıdan aç.',
+  'coach.linkTitle': 'BİR KOÇA BAĞLAN',
+  'coach.codePlaceholder': 'Kodunu gir',
+  'coach.link': 'BAĞLAN',
+  'coach.linked': 'KOÇUN',
+  'coach.nutritionTitle': 'BESLENME HEDEFİ',
+  'coach.calories': 'KALORİ',
+  'coach.protein': 'PROTEİN',
+  'coach.noTarget': 'Koçun henüz bir beslenme hedefi belirlemedi.',
+
+  'pt.dashboardTitle': 'DANIŞANLAR',
+  'pt.yourCode': 'Referans kodun',
+  'pt.noStudents': 'Henüz bağlı danışan yok. Başlamak için referans kodunu paylaş.',
+  'pt.selectStudent': 'Planını düzenlemek için bir danışan seç',
+  'pt.program': 'HAFTALIK PROGRAM',
+  'pt.nutrition': 'BESLENME HEDEFİ',
+  'pt.save': 'KAYDET',
+  'pt.saved': 'Kaydedildi',
+  'pt.signOut': 'ÇIKIŞ YAP',
+  'pt.backToClients': 'DANIŞANLARA DÖN',
 };
 
 export const translations: Record<Language, typeof en> = { en, tr };

@@ -21,6 +21,7 @@ interface ProfileState {
   setGender: (gender: Gender) => void;
   setHeightCm: (heightCm: number | null) => void;
   setWeightKg: (weightKg: number | null) => void;
+  setRoleAndReferralCode: (role: 'student' | 'pt', referralCode: string | null) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -32,6 +33,8 @@ export const useProfileStore = create<ProfileState>()(
         heightCm: null,
         weightKg: null,
         memberSinceYear: new Date().getFullYear(),
+        role: 'student',
+        referralCode: null,
       },
       setDisplayName: (displayName) => {
         set((state) => ({ profile: { ...state.profile, displayName } }));
@@ -49,6 +52,8 @@ export const useProfileStore = create<ProfileState>()(
         set((state) => ({ profile: { ...state.profile, weightKg } }));
         syncProfileField('weight_kg', weightKg);
       },
+      setRoleAndReferralCode: (role, referralCode) =>
+        set((state) => ({ profile: { ...state.profile, role, referralCode } })),
     }),
     {
       name: 'fitpr-profile',

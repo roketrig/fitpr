@@ -1,8 +1,9 @@
 import { emptyWeek, useProgramStore } from '../store/programStore';
 import { useProfileStore } from '../store/profileStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useCoachStore } from '../store/coachStore';
 import { useWorkoutStore } from '../store/workoutStore';
-import { ExerciseSlug, Language, WeeklyProgram } from '../types';
+import { ExerciseSlug, Language, Role, WeeklyProgram } from '../types';
 import { supabase } from './supabase';
 
 async function hasRemoteData(userId: string): Promise<boolean> {
@@ -88,6 +89,8 @@ async function pullCloudDataToLocal(userId: string) {
         gender: row.gender,
         heightCm: row.height_cm,
         weightKg: row.weight_kg,
+        role: (row.role as Role) ?? 'student',
+        referralCode: row.referral_code ?? null,
       },
     }));
     if (row.language) useSettingsStore.setState({ language: row.language as Language });
@@ -136,6 +139,7 @@ export async function syncOnSignIn(userId: string) {
   } else {
     await pushLocalDataToCloud(userId);
   }
+  await useCoachStore.getState().refresh();
 }
 
 // Local (AsyncStorage) state is per-device, not per-account — if we didn't
@@ -153,9 +157,12 @@ function resetLocalDataForSignOut() {
       heightCm: null,
       weightKg: null,
       memberSinceYear: state.profile.memberSinceYear,
+      role: 'student',
+      referralCode: null,
     },
   }));
   useSettingsStore.setState({ language: 'en' });
+  useCoachStore.setState({ coach: null, nutritionTarget: null });
 }
 
 supabase.auth.onAuthStateChange((event) => {

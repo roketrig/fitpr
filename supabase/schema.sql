@@ -141,3 +141,163 @@ create policy "program_exercises: update own" on program_exercises
 drop policy if exists "program_exercises: delete own" on program_exercises;
 create policy "program_exercises: delete own" on program_exercises
   for delete using (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- PT / coaching layer.
+-- A user is a plain student by default; calling become_pt() flips their
+-- role and mints a referral code, which a student redeems (link_to_pt)
+-- to attach themselves to that coach. Once linked, the PT gets write
+-- access to that student's program_exercises (so "assigning exercises"
+-- is just the PT editing the same weekly-program rows the student's app
+-- already reads) and to a new nutrition_targets row for them.
+-- ─────────────────────────────────────────────────────────────
+alter table profiles add column if not exists role text not null default 'student' check (role in ('student', 'pt'));
+alter table profiles add column if not exists referral_code text unique;
+
+drop policy if exists "profiles: pt view linked student" on profiles;
+create policy "profiles: pt view linked student" on profiles
+  for select using (
+    exists (
+      select 1 from pt_student_links
+      where pt_student_links.student_id = profiles.id
+        and pt_student_links.pt_id = auth.uid()
+    )
+  );
+
+drop policy if exists "profiles: student view own pt" on profiles;
+create policy "profiles: student view own pt" on profiles
+  for select using (
+    exists (
+      select 1 from pt_student_links
+      where pt_student_links.pt_id = profiles.id
+        and pt_student_links.student_id = auth.uid()
+    )
+  );
+
+-- One row per student — a student has at most one active coach.
+create table if not exists pt_student_links (
+  student_id uuid primary key references auth.users (id) on delete cascade,
+  pt_id uuid not null references auth.users (id) on delete cascade,
+  linked_at timestamptz not null default now()
+);
+
+create index if not exists pt_student_links_pt_idx on pt_student_links (pt_id);
+
+alter table pt_student_links enable row level security;
+
+drop policy if exists "pt_student_links: select own as student" on pt_student_links;
+create policy "pt_student_links: select own as student" on pt_student_links
+  for select using (auth.uid() = student_id);
+
+drop policy if exists "pt_student_links: select own as pt" on pt_student_links;
+create policy "pt_student_links: select own as pt" on pt_student_links
+  for select using (auth.uid() = pt_id);
+
+-- PTs get write access to their linked students' weekly program, on top
+-- of each user's own "manage my own rows" policies further up.
+drop policy if exists "program_exercises: pt manage linked student" on program_exercises;
+create policy "program_exercises: pt manage linked student" on program_exercises
+  for all using (
+    exists (
+      select 1 from pt_student_links
+      where pt_student_links.student_id = program_exercises.user_id
+        and pt_student_links.pt_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from pt_student_links
+      where pt_student_links.student_id = program_exercises.user_id
+        and pt_student_links.pt_id = auth.uid()
+    )
+  );
+
+create table if not exists nutrition_targets (
+  student_id uuid primary key references auth.users (id) on delete cascade,
+  pt_id uuid not null references auth.users (id) on delete cascade,
+  calories integer,
+  protein_g integer,
+  updated_at timestamptz not null default now()
+);
+
+alter table nutrition_targets enable row level security;
+
+drop policy if exists "nutrition_targets: select own as student" on nutrition_targets;
+create policy "nutrition_targets: select own as student" on nutrition_targets
+  for select using (auth.uid() = student_id);
+
+drop policy if exists "nutrition_targets: pt manage linked student" on nutrition_targets;
+create policy "nutrition_targets: pt manage linked student" on nutrition_targets
+  for all using (
+    exists (
+      select 1 from pt_student_links
+      where pt_student_links.student_id = nutrition_targets.student_id
+        and pt_student_links.pt_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from pt_student_links
+      where pt_student_links.student_id = nutrition_targets.student_id
+        and pt_student_links.pt_id = auth.uid()
+    )
+  );
+
+-- Flips the caller to a PT and mints them a referral code (idempotent —
+-- calling it again just returns the existing code).
+create or replace function public.become_pt()
+returns text
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  existing_code text;
+  new_code text;
+  attempt int := 0;
+begin
+  select referral_code into existing_code from profiles where id = auth.uid();
+  if existing_code is not null then
+    update profiles set role = 'pt' where id = auth.uid();
+    return existing_code;
+  end if;
+
+  loop
+    new_code := upper(substr(md5(random()::text || clock_timestamp()::text), 1, 6));
+    begin
+      update profiles set role = 'pt', referral_code = new_code where id = auth.uid();
+      return new_code;
+    exception when unique_violation then
+      attempt := attempt + 1;
+      if attempt > 10 then
+        raise exception 'Could not generate a unique referral code, try again';
+      end if;
+    end;
+  end loop;
+end;
+$$;
+
+-- Redeems a coach's referral code for the calling (student) user.
+-- Re-running it with a new code moves the student to that coach.
+create or replace function public.link_to_pt(code text)
+returns uuid
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  found_pt_id uuid;
+begin
+  select id into found_pt_id from profiles where referral_code = upper(code) and role = 'pt';
+  if found_pt_id is null then
+    raise exception 'Invalid referral code';
+  end if;
+  if found_pt_id = auth.uid() then
+    raise exception 'You cannot link to yourself';
+  end if;
+
+  insert into pt_student_links (student_id, pt_id)
+  values (auth.uid(), found_pt_id)
+  on conflict (student_id) do update set pt_id = excluded.pt_id, linked_at = now();
+
+  return found_pt_id;
+end;
+$$;
