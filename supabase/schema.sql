@@ -154,6 +154,25 @@ create policy "program_exercises: delete own" on program_exercises
 alter table profiles add column if not exists role text not null default 'student' check (role in ('student', 'pt'));
 alter table profiles add column if not exists referral_code text unique;
 
+-- One row per student — a student has at most one active coach.
+create table if not exists pt_student_links (
+  student_id uuid primary key references auth.users (id) on delete cascade,
+  pt_id uuid not null references auth.users (id) on delete cascade,
+  linked_at timestamptz not null default now()
+);
+
+create index if not exists pt_student_links_pt_idx on pt_student_links (pt_id);
+
+alter table pt_student_links enable row level security;
+
+drop policy if exists "pt_student_links: select own as student" on pt_student_links;
+create policy "pt_student_links: select own as student" on pt_student_links
+  for select using (auth.uid() = student_id);
+
+drop policy if exists "pt_student_links: select own as pt" on pt_student_links;
+create policy "pt_student_links: select own as pt" on pt_student_links
+  for select using (auth.uid() = pt_id);
+
 drop policy if exists "profiles: pt view linked student" on profiles;
 create policy "profiles: pt view linked student" on profiles
   for select using (
@@ -173,25 +192,6 @@ create policy "profiles: student view own pt" on profiles
         and pt_student_links.student_id = auth.uid()
     )
   );
-
--- One row per student — a student has at most one active coach.
-create table if not exists pt_student_links (
-  student_id uuid primary key references auth.users (id) on delete cascade,
-  pt_id uuid not null references auth.users (id) on delete cascade,
-  linked_at timestamptz not null default now()
-);
-
-create index if not exists pt_student_links_pt_idx on pt_student_links (pt_id);
-
-alter table pt_student_links enable row level security;
-
-drop policy if exists "pt_student_links: select own as student" on pt_student_links;
-create policy "pt_student_links: select own as student" on pt_student_links
-  for select using (auth.uid() = student_id);
-
-drop policy if exists "pt_student_links: select own as pt" on pt_student_links;
-create policy "pt_student_links: select own as pt" on pt_student_links
-  for select using (auth.uid() = pt_id);
 
 -- PTs get write access to their linked students' weekly program, on top
 -- of each user's own "manage my own rows" policies further up.
