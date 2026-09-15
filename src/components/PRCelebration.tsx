@@ -28,7 +28,7 @@ export function PRCelebration({ visible, newBadges, onDone }: Props) {
   if (!visible) return null;
 
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
+    <View style={styles.overlay}>
       <ConfettiCannon
         count={180}
         origin={{ x: width / 2, y: 0 }}
@@ -37,7 +37,7 @@ export function PRCelebration({ visible, newBadges, onDone }: Props) {
         colors={[colors.lime, colors.orange, colors.foreground]}
         onAnimationEnd={onDone}
       />
-      <View style={styles.banner} pointerEvents="none">
+      <View style={styles.banner}>
         <Text style={styles.title}>{t('celebration.newPr')}</Text>
         {newBadges.map((b) => {
           const badgeTitle =
@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: 100,
     zIndex: 10,
+    pointerEvents: 'box-none',
   },
   banner: {
     backgroundColor: colors.panel,
@@ -73,6 +74,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
+    pointerEvents: 'none',
   },
   title: {
     color: colors.lime,
