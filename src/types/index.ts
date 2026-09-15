@@ -131,3 +131,13 @@ export interface NutritionTarget {
   calories: number | null;
   proteinG: number | null;
 }
+
+export interface FoodLogEntry {
+  id: string;
+  foodSlug: string | null; // null for a manually typed custom entry
+  label: string;
+  quantity: number;
+  calories: number;
+  proteinG: number;
+  loggedAt: string;
+}

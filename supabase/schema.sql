@@ -301,3 +301,38 @@ begin
   return found_pt_id;
 end;
 $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- food_log_entries: a student's own food diary. food_slug matches the
+-- Food slugs in src/constants/foods.ts when picked from the built-in
+-- list, or is null for a manually typed custom entry — calories/protein
+-- are always stored pre-computed so the log reads correctly even if the
+-- underlying food list changes later. Student-only for now: PTs set
+-- nutrition_targets but don't read this log (no policy grants them access).
+-- ─────────────────────────────────────────────────────────────
+create table if not exists food_log_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  food_slug text,
+  label text not null,
+  quantity numeric not null default 1,
+  calories integer not null,
+  protein_g integer not null,
+  logged_at timestamptz not null default now()
+);
+
+create index if not exists food_log_entries_user_idx on food_log_entries (user_id, logged_at desc);
+
+alter table food_log_entries enable row level security;
+
+drop policy if exists "food_log_entries: select own" on food_log_entries;
+create policy "food_log_entries: select own" on food_log_entries
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "food_log_entries: insert own" on food_log_entries;
+create policy "food_log_entries: insert own" on food_log_entries
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "food_log_entries: delete own" on food_log_entries;
+create policy "food_log_entries: delete own" on food_log_entries
+  for delete using (auth.uid() = user_id);

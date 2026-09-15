@@ -4,6 +4,8 @@ import { CategoryKey, ExerciseSlug, Language } from '../types';
 import {
   CATEGORY_LABELS,
   EXERCISE_NAMES,
+  FOOD_CATEGORY_LABELS,
+  FOOD_NAMES,
   translations,
   TranslationKey,
   WEEKDAY_NAMES,
@@ -30,6 +32,14 @@ export function useT() {
     return CATEGORY_LABELS[language][category];
   }
 
+  function foodName(slug: string): string {
+    return FOOD_NAMES[language][slug] ?? slug;
+  }
+
+  function foodCategoryLabel(category: string): string {
+    return FOOD_CATEGORY_LABELS[language][category] ?? category;
+  }
+
   function unitLabel(unit: UnitKey): string {
     if (unit === 'kg') return t('workout.kg');
     if (unit === 'sec') return t('workout.seconds');
@@ -48,7 +58,18 @@ export function useT() {
     return language === 'tr' ? 'tr-TR' : 'en-US';
   }
 
-  return { t, language, exerciseName, categoryLabel, unitLabel, weekdayShort, weekdayFull, dateLocale };
+  return {
+    t,
+    language,
+    exerciseName,
+    categoryLabel,
+    foodName,
+    foodCategoryLabel,
+    unitLabel,
+    weekdayShort,
+    weekdayFull,
+    dateLocale,
+  };
 }
 
 export function exerciseNameFor(language: Language, slug: ExerciseSlug): string {

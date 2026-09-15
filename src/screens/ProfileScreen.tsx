@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { AuthOverlay } from '../components/AuthOverlay';
@@ -7,12 +7,10 @@ import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
 import { EXERCISES } from '../constants/exercises';
 import { useT } from '../i18n/useT';
-import { becomePT } from '../lib/coaching';
 import { supabase } from '../lib/supabase';
 import { unitKeyFor } from '../lib/metric';
 import { longestStreakDays, totalVolumeKg, trainingDayKeys } from '../lib/stats';
 import { useAuthStore } from '../store/authStore';
-import { useCoachStore } from '../store/coachStore';
 import { useProfileStore } from '../store/profileStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useWorkoutStore } from '../store/workoutStore';
@@ -35,41 +33,6 @@ export function ProfileScreen() {
 
   const session = useAuthStore((s) => s.session);
   const [authOpen, setAuthOpen] = useState(false);
-
-  const setRoleAndReferralCode = useProfileStore((s) => s.setRoleAndReferralCode);
-  const coach = useCoachStore((s) => s.coach);
-  const nutritionTarget = useCoachStore((s) => s.nutritionTarget);
-  const linking = useCoachStore((s) => s.linking);
-  const linkError = useCoachStore((s) => s.linkError);
-  const linkToCoach = useCoachStore((s) => s.linkToCoach);
-  const refreshCoach = useCoachStore((s) => s.refresh);
-  const [codeInput, setCodeInput] = useState('');
-  const [becomingPt, setBecomingPt] = useState(false);
-
-  useEffect(() => {
-    if (session && profile.role === 'student') {
-      refreshCoach();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user.id]);
-
-  async function handleBecomePt() {
-    setBecomingPt(true);
-    try {
-      const code = await becomePT();
-      setRoleAndReferralCode('pt', code);
-    } catch (e) {
-      console.warn('Failed to become a trainer', e);
-    } finally {
-      setBecomingPt(false);
-    }
-  }
-
-  async function handleLinkToCoach() {
-    if (!codeInput.trim()) return;
-    await linkToCoach(codeInput.trim());
-    setCodeInput('');
-  }
 
   const stats = useMemo(
     () => ({
@@ -205,80 +168,6 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        {session && (
-          <View style={styles.section}>
-            <Text style={styles.eyebrow}>{t('coach.title')}</Text>
-
-            {profile.role === 'pt' ? (
-              <View style={[styles.coachCard, { marginTop: 12 }]}>
-                <Text style={styles.label}>{t('coach.yourCode')}</Text>
-                <Text style={styles.referralCode}>{profile.referralCode}</Text>
-                {Platform.OS !== 'web' && <Text style={styles.hint}>{t('coach.webHint')}</Text>}
-              </View>
-            ) : coach ? (
-              <View style={[styles.coachCard, { marginTop: 12 }]}>
-                <Text style={styles.label}>{t('coach.linked')}</Text>
-                <Text style={styles.coachName}>{coach.displayName}</Text>
-
-                <Text style={[styles.label, { marginTop: 16 }]}>{t('coach.nutritionTitle')}</Text>
-                {nutritionTarget && (nutritionTarget.calories || nutritionTarget.proteinG) ? (
-                  <View style={styles.row}>
-                    <View style={[styles.flex1, styles.nutritionStat]}>
-                      <Text style={styles.nutritionValue}>{nutritionTarget.calories ?? '—'}</Text>
-                      <Text style={styles.nutritionLabel}>{t('coach.calories')}</Text>
-                    </View>
-                    <View style={[styles.flex1, styles.nutritionStat]}>
-                      <Text style={styles.nutritionValue}>{nutritionTarget.proteinG ?? '—'}</Text>
-                      <Text style={styles.nutritionLabel}>{t('coach.protein')}</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <Text style={styles.hint}>{t('coach.noTarget')}</Text>
-                )}
-              </View>
-            ) : (
-              <View style={[styles.coachCard, { marginTop: 12 }]}>
-                <Text style={styles.label}>{t('coach.linkTitle')}</Text>
-                <View style={styles.row}>
-                  <TextInput
-                    style={[styles.input, styles.flex1]}
-                    value={codeInput}
-                    onChangeText={(v) => setCodeInput(v.toUpperCase())}
-                    placeholder={t('coach.codePlaceholder')}
-                    placeholderTextColor={colors.muted}
-                    autoCapitalize="characters"
-                  />
-                  <Pressable
-                    style={[styles.linkButton, linking && styles.primaryButtonDisabled]}
-                    onPress={handleLinkToCoach}
-                    disabled={linking}
-                  >
-                    {linking ? (
-                      <ActivityIndicator color={colors.background} />
-                    ) : (
-                      <Text style={styles.linkButtonText}>{t('coach.link')}</Text>
-                    )}
-                  </Pressable>
-                </View>
-                {linkError && <Text style={styles.error}>{linkError}</Text>}
-
-                <Pressable
-                  style={[styles.becomePtButton, becomingPt && styles.primaryButtonDisabled]}
-                  onPress={handleBecomePt}
-                  disabled={becomingPt}
-                >
-                  {becomingPt ? (
-                    <ActivityIndicator color={colors.lime} />
-                  ) : (
-                    <Text style={styles.becomePtButtonText}>{t('coach.becomePt')}</Text>
-                  )}
-                </Pressable>
-                <Text style={styles.hint}>{t('coach.becomePtHint')}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
         <View style={styles.section}>
           <StatRow
             stats={[
@@ -390,42 +279,4 @@ const styles = StyleSheet.create({
   recordValue: { color: colors.foreground, fontSize: 22, fontFamily: fonts.display },
   recordUnit: { fontSize: 11, color: colors.muted },
   recordDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-  coachCard: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
-  },
-  referralCode: {
-    color: colors.lime,
-    fontSize: 32,
-    fontFamily: fonts.display,
-    letterSpacing: 4,
-    marginTop: 4,
-  },
-  coachName: { color: colors.foreground, fontSize: 18, fontWeight: '700', marginTop: 4 },
-  hint: { color: colors.muted, fontSize: 12, marginTop: 10, lineHeight: 17 },
-  nutritionStat: { alignItems: 'center', backgroundColor: colors.panel, borderRadius: 12, paddingVertical: 14 },
-  nutritionValue: { color: colors.foreground, fontSize: 22, fontFamily: fonts.display },
-  nutritionLabel: { color: colors.muted, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginTop: 4 },
-  linkButton: {
-    backgroundColor: colors.lime,
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  linkButtonText: { color: colors.background, fontSize: 13, fontWeight: '800' },
-  primaryButtonDisabled: { opacity: 0.7 },
-  error: { color: colors.orange, fontSize: 12, fontWeight: '600', marginTop: 10 },
-  becomePtButton: {
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: colors.lime,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  becomePtButtonText: { color: colors.lime, fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
 });

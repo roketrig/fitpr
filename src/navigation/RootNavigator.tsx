@@ -1,11 +1,12 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DarkTheme, NavigationContainer, Theme } from '@react-navigation/native';
-import { CalendarDays, Dumbbell, Trophy, UserRound } from 'lucide-react-native';
+import { Apple, CalendarDays, Dumbbell, Trophy, UserRound } from 'lucide-react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '../i18n/useT';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
+import { NutritionScreen } from '../screens/NutritionScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProgramScreen } from '../screens/ProgramScreen';
 import { WorkoutScreen } from '../screens/WorkoutScreen';
@@ -30,6 +31,7 @@ const navTheme: Theme = {
 const ICONS = {
   Workout: Dumbbell,
   Program: CalendarDays,
+  Nutrition: Apple,
   Achievements: Trophy,
   Profile: UserRound,
 } as const;
@@ -60,6 +62,7 @@ function StudentTabs() {
     >
       <Tab.Screen name="Workout" component={WorkoutScreen} options={{ tabBarLabel: t('nav.workout') }} />
       <Tab.Screen name="Program" component={ProgramScreen} options={{ tabBarLabel: t('nav.program') }} />
+      <Tab.Screen name="Nutrition" component={NutritionScreen} options={{ tabBarLabel: t('nav.nutrition') }} />
       <Tab.Screen
         name="Achievements"
         component={AchievementsScreen}

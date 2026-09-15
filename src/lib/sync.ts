@@ -2,6 +2,7 @@ import { emptyWeek, useProgramStore } from '../store/programStore';
 import { useProfileStore } from '../store/profileStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useCoachStore } from '../store/coachStore';
+import { useFoodLogStore } from '../store/foodLogStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { ExerciseSlug, Language, Role, WeeklyProgram } from '../types';
 import { supabase } from './supabase';
@@ -139,7 +140,7 @@ export async function syncOnSignIn(userId: string) {
   } else {
     await pushLocalDataToCloud(userId);
   }
-  await useCoachStore.getState().refresh();
+  await Promise.all([useCoachStore.getState().refresh(), useFoodLogStore.getState().refreshToday()]);
 }
 
 // Local (AsyncStorage) state is per-device, not per-account — if we didn't
@@ -163,6 +164,7 @@ function resetLocalDataForSignOut() {
   }));
   useSettingsStore.setState({ language: 'en' });
   useCoachStore.setState({ coach: null, nutritionTarget: null });
+  useFoodLogStore.setState({ todaysEntries: [] });
 }
 
 supabase.auth.onAuthStateChange((event) => {
