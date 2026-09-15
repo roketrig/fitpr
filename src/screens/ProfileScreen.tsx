@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { AuthOverlay } from '../components/AuthOverlay';
+import { DeleteAccountOverlay } from '../components/DeleteAccountOverlay';
 import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
 import { EXERCISES } from '../constants/exercises';
@@ -33,6 +34,7 @@ export function ProfileScreen() {
 
   const session = useAuthStore((s) => s.session);
   const [authOpen, setAuthOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const stats = useMemo(
     () => ({
@@ -92,9 +94,21 @@ export function ProfileScreen() {
               </Text>
             </Pressable>
           </View>
+
+          {session && (
+            <Pressable onPress={() => setDeleteOpen(true)} style={styles.deleteAccountLink}>
+              <Text style={styles.deleteAccountLinkText}>{t('profile.deleteAccount')}</Text>
+            </Pressable>
+          )}
         </View>
 
         {authOpen && <AuthOverlay onClose={() => setAuthOpen(false)} />}
+        {deleteOpen && (
+          <DeleteAccountOverlay
+            onClose={() => setDeleteOpen(false)}
+            onDeleted={() => setDeleteOpen(false)}
+          />
+        )}
 
         <View style={styles.section}>
           <Text style={styles.label}>{t('profile.displayName')}</Text>
@@ -230,6 +244,8 @@ const styles = StyleSheet.create({
   identityCol: { flex: 1 },
   signInButton: { paddingHorizontal: 12, paddingVertical: 8 },
   signInButtonText: { color: colors.lime, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  deleteAccountLink: { alignSelf: 'center', marginTop: 18 },
+  deleteAccountLinkText: { color: colors.muted, fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' },
   name: { color: colors.foreground, fontSize: 24, fontFamily: fonts.display },
   memberSince: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: 2 },
   label: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 8, marginTop: 16 },

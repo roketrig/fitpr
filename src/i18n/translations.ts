@@ -261,6 +261,13 @@ const en = {
   'profile.signOut': 'SIGN OUT',
   'profile.synced': 'SYNCED',
   'profile.local': 'LOCAL ONLY',
+  'profile.deleteAccount': 'Delete Account',
+  'profile.deleteAccountTitle': 'DELETE YOUR ACCOUNT?',
+  'profile.deleteAccountBody':
+    'This permanently deletes your account and everything tied to it — profile, workout history, PRs, achievements, program, nutrition log, and your coach link. This cannot be undone.',
+  'profile.deleteAccountConfirm': 'YES, DELETE PERMANENTLY',
+  'profile.deleteAccountCancel': 'CANCEL',
+  'profile.deleteAccountError': "Couldn't delete your account. Try again or email us.",
 
   'auth.titleSignIn': 'WELCOME BACK',
   'auth.titleSignUp': 'CREATE ACCOUNT',
@@ -392,6 +399,13 @@ const tr: Record<keyof typeof en, string> = {
   'profile.signOut': 'ÇIKIŞ YAP',
   'profile.synced': 'SENKRONİZE',
   'profile.local': 'SADECE CİHAZDA',
+  'profile.deleteAccount': 'Hesabı Sil',
+  'profile.deleteAccountTitle': 'HESABINI SİL?',
+  'profile.deleteAccountBody':
+    'Bu işlem hesabını ve ona bağlı her şeyi kalıcı olarak siler — profil, antrenman geçmişi, rekorlar, başarımlar, program, beslenme günlüğü ve koç bağlantın. Bu geri alınamaz.',
+  'profile.deleteAccountConfirm': 'EVET, KALICI OLARAK SİL',
+  'profile.deleteAccountCancel': 'VAZGEÇ',
+  'profile.deleteAccountError': 'Hesabın silinemedi. Tekrar dene veya bize e-posta at.',
 
   'auth.titleSignIn': 'TEKRAR HOŞ GELDİN',
   'auth.titleSignUp': 'HESAP OLUŞTUR',

@@ -336,3 +336,22 @@ create policy "food_log_entries: insert own" on food_log_entries
 drop policy if exists "food_log_entries: delete own" on food_log_entries;
 create policy "food_log_entries: delete own" on food_log_entries
   for delete using (auth.uid() = user_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- Account deletion. Every table above references auth.users(id)
+-- on delete cascade, so removing the auth user removes all of a
+-- person's rows (profile, sets, program, achievements, nutrition
+-- target/log, coach link) in one shot — nothing else to clean up here.
+-- security definer runs as the function's owner (postgres), which has
+-- the privileges to delete from auth.users; a plain client can't do
+-- this directly since it only ever holds an anon/user-scoped key.
+-- ─────────────────────────────────────────────────────────────
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;
