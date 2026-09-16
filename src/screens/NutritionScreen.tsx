@@ -2,6 +2,7 @@ import { Trash2 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -20,6 +21,8 @@ import { useCoachStore } from '../store/coachStore';
 import { useFoodLogStore } from '../store/foodLogStore';
 import { useProfileStore } from '../store/profileStore';
 import { colors, fonts } from '../theme';
+
+const COACH_DASHBOARD_URL = 'https://fitpr.vercel.app';
 
 export function NutritionScreen() {
   const { t } = useT();
@@ -98,7 +101,14 @@ export function NutritionScreen() {
             <View style={[styles.card, { marginTop: 12 }]}>
               <Text style={styles.label}>{t('coach.yourCode')}</Text>
               <Text style={styles.referralCode}>{profile.referralCode}</Text>
-              {Platform.OS !== 'web' && <Text style={styles.hint}>{t('coach.webHint')}</Text>}
+              {Platform.OS !== 'web' && (
+                <View style={styles.webHintRow}>
+                  <Text style={styles.hint}>{t('coach.webHint')}</Text>
+                  <Pressable onPress={() => Linking.openURL(COACH_DASHBOARD_URL)}>
+                    <Text style={styles.webLink}>fitpr.vercel.app</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           ) : coach ? (
             <View style={[styles.card, { marginTop: 12 }]}>
@@ -262,6 +272,14 @@ const styles = StyleSheet.create({
   referralCode: { color: colors.lime, fontSize: 32, fontFamily: fonts.display, letterSpacing: 4, marginTop: 4 },
   coachName: { color: colors.foreground, fontSize: 18, fontWeight: '700', marginTop: 4 },
   hint: { color: colors.muted, fontSize: 12, marginTop: 10, lineHeight: 17 },
+  webHintRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  webLink: {
+    color: colors.lime,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 10,
+    textDecorationLine: 'underline',
+  },
   row: { flexDirection: 'row', gap: 12, marginTop: 8 },
   flex1: { flex: 1 },
   input: {
