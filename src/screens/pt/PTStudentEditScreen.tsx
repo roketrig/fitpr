@@ -43,6 +43,7 @@ export function PTStudentEditScreen() {
 
   const [nutrition, setNutrition] = useState<NutritionTarget>({ calories: null, proteinG: null });
   const [savedFlash, setSavedFlash] = useState(false);
+  const [programError, setProgramError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStudentProgram(studentId).then(setWeek);
@@ -54,21 +55,35 @@ export function PTStudentEditScreen() {
 
   async function handleAdd(slug: (typeof EXERCISES)[number]['slug']) {
     if (!week) return;
-    const position = (week[selectedDay] ?? []).length;
+    const previous = week;
+    setProgramError(null);
     setWeek({
       ...week,
       [selectedDay]: [...week[selectedDay], { exerciseSlug: slug, targetSets: 3, targetReps: 12 }],
     });
-    await assignExerciseToStudent(studentId, selectedDay, slug, position);
+    try {
+      const position = (previous[selectedDay] ?? []).length;
+      await assignExerciseToStudent(studentId, selectedDay, slug, position);
+    } catch (e) {
+      setWeek(previous);
+      setProgramError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   async function handleRemove(slug: (typeof EXERCISES)[number]['slug']) {
     if (!week) return;
+    const previous = week;
+    setProgramError(null);
     setWeek({
       ...week,
       [selectedDay]: week[selectedDay].filter((e) => e.exerciseSlug !== slug),
     });
-    await removeStudentExercise(studentId, selectedDay, slug);
+    try {
+      await removeStudentExercise(studentId, selectedDay, slug);
+    } catch (e) {
+      setWeek(previous);
+      setProgramError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   async function handleTargetChange(
@@ -76,13 +91,20 @@ export function PTStudentEditScreen() {
     patch: { targetSets?: number; targetReps?: number }
   ) {
     if (!week) return;
+    const previous = week;
+    setProgramError(null);
     setWeek({
       ...week,
       [selectedDay]: week[selectedDay].map((e) =>
         e.exerciseSlug === slug ? { ...e, ...patch } : e
       ),
     });
-    await updateStudentExerciseTarget(studentId, selectedDay, slug, patch);
+    try {
+      await updateStudentExerciseTarget(studentId, selectedDay, slug, patch);
+    } catch (e) {
+      setWeek(previous);
+      setProgramError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   async function handleSaveNutrition() {
@@ -190,6 +212,7 @@ export function PTStudentEditScreen() {
             <Plus size={18} color={colors.background} strokeWidth={3} />
             <Text style={styles.addButtonText}>{t('program.addExercise')}</Text>
           </Pressable>
+          {programError && <Text style={styles.errorText}>{programError}</Text>}
         </View>
 
         <View style={styles.section}>
@@ -367,6 +390,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   addButtonText: { color: colors.background, fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
+  errorText: { color: colors.orange, fontSize: 12, fontWeight: '600', marginTop: 10, lineHeight: 17 },
   nutritionCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
