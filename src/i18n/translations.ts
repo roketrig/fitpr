@@ -9,6 +9,7 @@ export const CATEGORY_LABELS: Record<Language, Record<CategoryKey, string>> = {
     arms: 'ARMS',
     core: 'CORE',
     cardio: 'CARDIO',
+    wrist: 'WRIST',
   },
   tr: {
     chest: 'GÖĞÜS',
@@ -18,6 +19,7 @@ export const CATEGORY_LABELS: Record<Language, Record<CategoryKey, string>> = {
     arms: 'KOL',
     core: 'KARIN',
     cardio: 'KARDİYO',
+    wrist: 'BİLEK',
   },
 };
 
@@ -41,6 +43,13 @@ const EXERCISE_NAMES_EN: Record<ExerciseSlug, string> = {
   t_bar_row: 'T-Bar Row',
   inverted_row: 'Inverted Row',
   pull_up: 'Pull-Up',
+  chin_up: 'Chin-Up',
+  pullover: 'Pullover',
+  cable_pullover: 'Cable Pullover',
+  chest_supported_row: 'Chest Supported Row',
+  close_neutral_grip_pulldown: 'Close Neutral-Grip Pulldown',
+  reverse_grip_pulldown: 'Reverse-Grip Pulldown',
+  wide_neutral_grip_pulldown: 'Wide Neutral-Grip Pulldown',
   squat: 'Squat',
   front_squat: 'Front Squat',
   leg_press: 'Leg Press',
@@ -76,6 +85,9 @@ const EXERCISE_NAMES_EN: Record<ExerciseSlug, string> = {
   mountain_climber: 'Mountain Climber',
   jumping_jack: 'Jumping Jack',
   kettlebell_swing: 'Kettlebell Swing',
+  wrist_curl: 'Wrist Curl',
+  reverse_wrist_curl: 'Reverse Wrist Curl',
+  wrist_roller: 'Wrist Roller',
 };
 
 export const EXERCISE_NAMES: Record<Language, Record<ExerciseSlug, string>> = {

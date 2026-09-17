@@ -19,6 +19,13 @@ export type ExerciseSlug =
   | 't_bar_row'
   | 'inverted_row'
   | 'pull_up'
+  | 'chin_up'
+  | 'pullover'
+  | 'cable_pullover'
+  | 'chest_supported_row'
+  | 'close_neutral_grip_pulldown'
+  | 'reverse_grip_pulldown'
+  | 'wide_neutral_grip_pulldown'
   // legs
   | 'squat'
   | 'front_squat'
@@ -58,9 +65,21 @@ export type ExerciseSlug =
   | 'burpee'
   | 'mountain_climber'
   | 'jumping_jack'
-  | 'kettlebell_swing';
+  | 'kettlebell_swing'
+  // wrist
+  | 'wrist_curl'
+  | 'reverse_wrist_curl'
+  | 'wrist_roller';
 
-export type CategoryKey = 'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'core' | 'cardio';
+export type CategoryKey =
+  | 'chest'
+  | 'back'
+  | 'legs'
+  | 'shoulders'
+  | 'arms'
+  | 'core'
+  | 'cardio'
+  | 'wrist';
 
 export type EquipmentType = 'barbell' | 'dumbbell' | 'machine' | 'bodyweight';
 

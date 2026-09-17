@@ -22,6 +22,13 @@ export const EXERCISES: Exercise[] = [
   { slug: 't_bar_row', category: 'back', equipment: 'barbell', metric: 'weight_reps' },
   { slug: 'inverted_row', category: 'back', equipment: 'bodyweight', metric: 'reps_only' },
   { slug: 'pull_up', category: 'back', equipment: 'bodyweight', metric: 'reps_only' },
+  { slug: 'chin_up', category: 'back', equipment: 'bodyweight', metric: 'reps_only' },
+  { slug: 'pullover', category: 'back', equipment: 'dumbbell', metric: 'weight_reps' },
+  { slug: 'cable_pullover', category: 'back', equipment: 'machine', metric: 'weight_reps' },
+  { slug: 'chest_supported_row', category: 'back', equipment: 'dumbbell', metric: 'weight_reps' },
+  { slug: 'close_neutral_grip_pulldown', category: 'back', equipment: 'machine', metric: 'weight_reps' },
+  { slug: 'reverse_grip_pulldown', category: 'back', equipment: 'machine', metric: 'weight_reps' },
+  { slug: 'wide_neutral_grip_pulldown', category: 'back', equipment: 'machine', metric: 'weight_reps' },
   // legs
   { slug: 'squat', category: 'legs', equipment: 'barbell', metric: 'weight_reps' },
   { slug: 'front_squat', category: 'legs', equipment: 'barbell', metric: 'weight_reps' },
@@ -62,6 +69,10 @@ export const EXERCISES: Exercise[] = [
   { slug: 'mountain_climber', category: 'cardio', equipment: 'bodyweight', metric: 'reps_only' },
   { slug: 'jumping_jack', category: 'cardio', equipment: 'bodyweight', metric: 'reps_only' },
   { slug: 'kettlebell_swing', category: 'cardio', equipment: 'dumbbell', metric: 'weight_reps' },
+  // wrist
+  { slug: 'wrist_curl', category: 'wrist', equipment: 'barbell', metric: 'weight_reps' },
+  { slug: 'reverse_wrist_curl', category: 'wrist', equipment: 'barbell', metric: 'weight_reps' },
+  { slug: 'wrist_roller', category: 'wrist', equipment: 'dumbbell', metric: 'reps_only' },
 ];
 
 export const EXERCISES_BY_SLUG: Record<ExerciseSlug, Exercise> = Object.fromEntries(
@@ -80,4 +91,5 @@ export const CATEGORY_ORDER = [
   'arms',
   'core',
   'cardio',
+  'wrist',
 ] as const;
