@@ -292,6 +292,8 @@ const en = {
   'auth.switchToSignIn': 'Already have an account? Sign in',
   'auth.checkEmail': 'Check your email to confirm your account, then sign in.',
   'auth.close': 'CLOSE',
+  'emailConfirmed.title': "You're all set",
+  'emailConfirmed.body': 'Your email is confirmed. Head back to the FitPR app and sign in with your email and password.',
   'auth.syncing': 'Syncing your data…',
 
   'celebration.newPr': 'NEW PR!',
@@ -431,6 +433,8 @@ const tr: Record<keyof typeof en, string> = {
   'auth.checkEmail': 'Hesabını onaylamak için e-postana bakıp sonra giriş yap.',
   'auth.close': 'KAPAT',
   'auth.syncing': 'Verilerin senkronize ediliyor…',
+  'emailConfirmed.title': 'Her şey hazır',
+  'emailConfirmed.body': 'E-postan onaylandı. FitPR uygulamasına dönüp e-posta ve şifrenle giriş yapabilirsin.',
 
   'celebration.newPr': 'YENİ REKOR!',
   'celebration.badgeUnlocked': 'Rozet açıldı: {title}',
