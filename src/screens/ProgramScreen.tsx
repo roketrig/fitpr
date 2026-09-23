@@ -1,5 +1,5 @@
 import { Minus, Plus, Trash2, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { CATEGORY_ORDER, EXERCISES, getExercise } from '../constants/exercises';
 import { useT } from '../i18n/useT';
+import { useAuthStore } from '../store/authStore';
 import { useProgramStore } from '../store/programStore';
 import { colors, fonts } from '../theme';
 import { CategoryKey, DayOfWeek, ExerciseSlug } from '../types';
@@ -23,6 +24,11 @@ export function ProgramScreen() {
   const todayIndex = new Date().getDay() as DayOfWeek;
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(todayIndex);
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  const authUserId = useAuthStore((s) => s.session?.user.id);
+  useEffect(() => {
+    if (authUserId) useProgramStore.getState().refreshFromRemote(authUserId);
+  }, [authUserId]);
 
   const dayExercises = useProgramStore((s) => s.getDay(selectedDay));
   const addExerciseToDay = useProgramStore((s) => s.addExerciseToDay);

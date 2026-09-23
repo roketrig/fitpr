@@ -63,6 +63,7 @@ interface ProgramState {
     exerciseSlug: ExerciseSlug,
     patch: Partial<Pick<ProgramExercise, 'targetSets' | 'targetReps'>>
   ) => void;
+  refreshFromRemote: (userId: string) => Promise<void>;
 }
 
 export const useProgramStore = create<ProgramState>()(
@@ -111,6 +112,32 @@ export const useProgramStore = create<ProgramState>()(
           return { week: { ...state.week, [day]: list } };
         });
         if (updated) upsertRemote(day, updated, position);
+      },
+
+      // A PT can change a student's program at any time from the web
+      // dashboard, without the student signing out and back in — so unlike
+      // the rest of this store (which is a local-first, write-through
+      // cache), the program also needs to be pulled fresh whenever the
+      // student opens the screens that show it.
+      refreshFromRemote: async (userId) => {
+        const { data, error } = await supabase
+          .from('program_exercises')
+          .select('day_of_week, exercise_slug, target_sets, target_reps')
+          .eq('user_id', userId)
+          .order('position');
+        if (error) {
+          console.warn('Supabase program refresh failed', error);
+          return;
+        }
+        const week = emptyWeek();
+        for (const row of data ?? []) {
+          week[row.day_of_week as DayOfWeek].push({
+            exerciseSlug: row.exercise_slug as ExerciseSlug,
+            targetSets: row.target_sets,
+            targetReps: row.target_reps,
+          });
+        }
+        set({ week });
       },
     }),
     {

@@ -20,6 +20,7 @@ import { EXERCISES, getExercise, SETS_PER_SESSION } from '../constants/exercises
 import { useT } from '../i18n/useT';
 import { getValueStepConfig, unitKeyFor } from '../lib/metric';
 import { currentStreakDays, sessionStatsFor, suggestedNextValue, trainingWeekNumber } from '../lib/stats';
+import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
 import { useProgramStore } from '../store/programStore';
 import { UnlockedBadge, useWorkoutStore } from '../store/workoutStore';
@@ -31,6 +32,11 @@ const REPS_DEFAULT = 5;
 export function WorkoutScreen() {
   const navigation = useNavigation();
   const { t, exerciseName, categoryLabel, unitLabel, dateLocale } = useT();
+
+  const authUserId = useAuthStore((s) => s.session?.user.id);
+  useEffect(() => {
+    if (authUserId) useProgramStore.getState().refreshFromRemote(authUserId);
+  }, [authUserId]);
 
   const today = new Date().getDay() as DayOfWeek;
   const programToday = useProgramStore((s) => s.getDay(today));
