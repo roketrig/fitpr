@@ -355,3 +355,20 @@ begin
   delete from auth.users where id = auth.uid();
 end;
 $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- exercise-clips: public storage bucket for short (5-10s), self-filmed
+-- exercise demo clips. Files are named "<exercise_slug>.mp4" and
+-- uploaded by hand via Dashboard → Storage — nothing in the app needs a
+-- code change to pick up a new clip beyond adding its slug to
+-- src/constants/exerciseClips.ts. Public read (so the app can just load
+-- a plain URL, same as any other static asset); writes are left to the
+-- dashboard, not exposed to clients.
+-- ─────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public)
+values ('exercise-clips', 'exercise-clips', true)
+on conflict (id) do nothing;
+
+drop policy if exists "exercise-clips: public read" on storage.objects;
+create policy "exercise-clips: public read" on storage.objects
+  for select using (bucket_id = 'exercise-clips');

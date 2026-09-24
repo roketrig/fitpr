@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
+import { ExerciseDemoButton } from '../components/ExerciseDemoButton';
 import { ExerciseVisual } from '../components/ExerciseVisual';
 import { NumberStepperCard } from '../components/NumberStepperCard';
 import { PRCelebration } from '../components/PRCelebration';
@@ -198,6 +199,7 @@ export function WorkoutScreen() {
               </Pressable>
             </View>
             <Text style={styles.category}>{categoryLabel(exercise.category)}</Text>
+            <ExerciseDemoButton slug={activeSlug} />
 
             <ExerciseVisual
               exercise={exercise}
