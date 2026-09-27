@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AchievementCard } from '../components/AchievementCard';
 import { AppHeader } from '../components/AppHeader';
@@ -10,7 +10,7 @@ import {
   getNextStreakAchievement,
   STREAK_ACHIEVEMENTS,
 } from '../constants/achievements';
-import { EXERCISES, getExercise } from '../constants/exercises';
+import { CATEGORY_ORDER, EXERCISES, getExercise } from '../constants/exercises';
 import { STREAK_ACHIEVEMENT_TEXT } from '../i18n/translations';
 import { useT } from '../i18n/useT';
 import { unitKeyFor } from '../lib/metric';
@@ -18,6 +18,7 @@ import { currentStreakDays } from '../lib/stats';
 import { useProfileStore } from '../store/profileStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { Colors, fonts, useColors } from '../theme';
+import { CategoryKey } from '../types';
 
 interface Row {
   key: string;
@@ -27,17 +28,29 @@ interface Row {
   valueText?: string;
   progress?: number;
   progressLabel?: string;
+  category: CategoryKey | 'streak';
+  unlockedAt?: string;
 }
 
 export function AchievementsScreen() {
-  const { t, exerciseName, unitLabel, language } = useT();
+  const { t, exerciseName, categoryLabel, unitLabel, language, dateLocale } = useT();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const gender = useProfileStore((s) => s.profile.gender);
   const sets = useWorkoutStore((s) => s.sets);
   const unlockedSlugs = useWorkoutStore((s) => s.unlockedAchievementSlugs);
+  const unlockedAt = useWorkoutStore((s) => s.unlockedAt);
   const personalBestFor = useWorkoutStore((s) => s.personalBestFor);
   const streakDays = useMemo(() => currentStreakDays(sets), [sets]);
+
+  function formatDate(iso?: string): string | undefined {
+    if (!iso) return undefined;
+    return new Date(iso).toLocaleDateString(dateLocale(), {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
 
   const rows: Row[] = useMemo(() => {
     if (!gender) return [];
@@ -52,6 +65,8 @@ export function AchievementsScreen() {
         subtitle: exerciseName(a.exerciseSlug),
         unlocked: true,
         valueText: `${a.threshold} ${unit}`,
+        category: getExercise(a.exerciseSlug).category,
+        unlockedAt: unlockedAt[a.slug],
       };
     });
 
@@ -63,6 +78,8 @@ export function AchievementsScreen() {
       subtitle: STREAK_ACHIEVEMENT_TEXT[language][a.slug].subtitle,
       unlocked: true,
       valueText: `${a.thresholdDays} ${t('workout.dayStreak')}`,
+      category: 'streak',
+      unlockedAt: unlockedAt[a.slug],
     }));
 
     const nextPerExercise = EXERCISES.map((ex) => {
@@ -78,6 +95,7 @@ export function AchievementsScreen() {
         unlocked: false,
         progress,
         progressLabel: t('achievements.percentComplete', { pct: Math.round(progress * 100) }),
+        category: ex.category,
       } as Row;
     }).filter((r): r is Row => r !== null);
 
@@ -94,12 +112,29 @@ export function AchievementsScreen() {
               progressLabel: t('achievements.percentComplete', {
                 pct: Math.round((streakDays / nextStreak.thresholdDays) * 100),
               }),
+              category: 'streak',
             },
           ]
         : [];
 
     return [...unlocked, ...unlockedStreaks, ...nextPerExercise, ...nextStreakRow];
-  }, [gender, unlockedSlugs, personalBestFor, streakDays, exerciseName, unitLabel, language, t]);
+  }, [gender, unlockedSlugs, unlockedAt, personalBestFor, streakDays, exerciseName, unitLabel, language, t]);
+
+  const sections = useMemo(() => {
+    const byCategory = new Map<string, Row[]>();
+    for (const row of rows) {
+      const list = byCategory.get(row.category) ?? [];
+      list.push(row);
+      byCategory.set(row.category, list);
+    }
+    const order: (CategoryKey | 'streak')[] = [...CATEGORY_ORDER, 'streak'];
+    return order
+      .filter((c) => byCategory.has(c))
+      .map((c) => ({
+        title: c === 'streak' ? t('achievements.streakCategory') : categoryLabel(c),
+        data: byCategory.get(c)!,
+      }));
+  }, [rows, t, categoryLabel]);
 
   const unlockedCount =
     ACHIEVEMENTS.filter((a) => unlockedSlugs.includes(a.slug)).length +
@@ -116,9 +151,10 @@ export function AchievementsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <FlatList
-        data={rows}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.key}
+        stickySectionHeadersEnabled={false}
         ListHeaderComponent={
           <View>
             <AppHeader />
@@ -139,6 +175,9 @@ export function AchievementsScreen() {
           </View>
         }
         contentContainerStyle={styles.list}
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.categoryHeader}>{section.title}</Text>
+        )}
         renderItem={({ item }) => (
           <AchievementCard
             title={item.title}
@@ -147,9 +186,11 @@ export function AchievementsScreen() {
             valueText={item.valueText}
             progress={item.progress}
             progressLabel={item.progressLabel}
+            unlockedDateText={formatDate(item.unlockedAt)}
           />
         )}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        SectionSeparatorComponent={() => <View style={{ height: 20 }} />}
       />
     </SafeAreaView>
   );
@@ -172,5 +213,12 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   unlockedCount: { color: colors.orange, fontSize: 26, fontFamily: fonts.display },
   unlockedLabel: { color: colors.muted, fontSize: 10, fontWeight: '700', letterSpacing: 1 },
   list: { paddingHorizontal: 16, paddingBottom: 24 },
+  categoryHeader: {
+    color: colors.lime,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 10,
+  },
   emptyText: { color: colors.muted, textAlign: 'center', marginTop: 40, paddingHorizontal: 24 },
 });

@@ -1,7 +1,7 @@
 import { PersonStanding } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { Colors, useColors } from '../theme';
+import { Colors, useColors, withAlpha } from '../theme';
 
 interface Props {
   value: number;
@@ -38,7 +38,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(201,245,51,0.12)',
+    backgroundColor: withAlpha(colors.lime, 0.12),
     alignItems: 'center',
     justifyContent: 'center',
   },

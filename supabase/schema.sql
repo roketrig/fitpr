@@ -111,6 +111,10 @@ drop policy if exists "unlocked_achievements: insert own" on unlocked_achievemen
 create policy "unlocked_achievements: insert own" on unlocked_achievements
   for insert with check (auth.uid() = user_id);
 
+drop policy if exists "unlocked_achievements: update own" on unlocked_achievements;
+create policy "unlocked_achievements: update own" on unlocked_achievements
+  for update using (auth.uid() = user_id);
+
 -- ─────────────────────────────────────────────────────────────
 -- program_exercises: the user's editable weekly program. One row per
 -- exercise assigned to a weekday. day_of_week matches JS Date#getDay()

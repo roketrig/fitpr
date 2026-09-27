@@ -1,7 +1,7 @@
 import { Award, Check, Lock } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors, useColors } from '../theme';
+import { Colors, useColors, withAlpha } from '../theme';
 
 interface Props {
   title: string;
@@ -10,6 +10,7 @@ interface Props {
   valueText?: string;
   progress?: number;
   progressLabel?: string;
+  unlockedDateText?: string;
 }
 
 export function AchievementCard({
@@ -19,6 +20,7 @@ export function AchievementCard({
   valueText,
   progress,
   progressLabel,
+  unlockedDateText,
 }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -40,7 +42,10 @@ export function AchievementCard({
       </View>
 
       {unlocked && valueText ? (
-        <Text style={styles.value}>{valueText}</Text>
+        <View style={styles.valueRow}>
+          <Text style={styles.value}>{valueText}</Text>
+          {unlockedDateText && <Text style={styles.unlockedDate}>{unlockedDateText}</Text>}
+        </View>
       ) : (
         progress !== undefined && (
           <View>
@@ -74,11 +79,18 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconBoxUnlocked: { backgroundColor: 'rgba(201,245,51,0.12)' },
+  iconBoxUnlocked: { backgroundColor: withAlpha(colors.lime, 0.12) },
   textCol: { flex: 1 },
   title: { color: colors.foreground, fontSize: 16, fontWeight: '700' },
   subtitle: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  value: { color: colors.lime, fontSize: 14, fontWeight: '800', marginTop: 12, letterSpacing: 0.5 },
+  valueRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  value: { color: colors.lime, fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
+  unlockedDate: { color: colors.muted, fontSize: 11, fontWeight: '600' },
   progressTrack: {
     height: 6,
     borderRadius: 3,

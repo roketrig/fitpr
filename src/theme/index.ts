@@ -40,6 +40,14 @@ export const PALETTES: Palette[] = [
   { id: 'ganache', nameKey: 'palette.ganache', lime: '#81D7D3', orange: '#C9A24B' },
 ];
 
+export function withAlpha(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export function colorsForPalette(paletteId: string): Colors {
   const palette = PALETTES.find((p) => p.id === paletteId) ?? PALETTES[0];
   return { ...BASE, lime: palette.lime, orange: palette.orange };

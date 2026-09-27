@@ -254,6 +254,7 @@ const en = {
   'achievements.subtitle': 'KEEP SHOWING UP / KEEP LEVELING UP',
   'achievements.unlocked': 'UNLOCKED',
   'achievements.percentComplete': '{pct}% complete',
+  'achievements.streakCategory': 'STREAK',
   'achievements.setGenderPrompt': 'Set your gender in the Profile tab to see your achievements.',
 
   'profile.yourAccount': 'YOUR ACCOUNT',
@@ -405,6 +406,7 @@ const tr: Record<keyof typeof en, string> = {
   'achievements.subtitle': 'GELMEYE DEVAM ET / SEVİYE ATLA',
   'achievements.unlocked': 'AÇILDI',
   'achievements.percentComplete': '%{pct} tamamlandı',
+  'achievements.streakCategory': 'SERİ',
   'achievements.setGenderPrompt': 'Başarımlarını görmek için Profil sekmesinden cinsiyetini seç.',
 
   'profile.yourAccount': 'HESABIN',

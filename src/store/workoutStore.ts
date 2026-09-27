@@ -21,6 +21,7 @@ interface AddSetResult {
 interface WorkoutState {
   sets: WorkoutSet[];
   unlockedAchievementSlugs: string[];
+  unlockedAt: Record<string, string>;
   personalBestFor: (exerciseSlug: ExerciseSlug) => number;
   setsFor: (exerciseSlug: ExerciseSlug) => WorkoutSet[];
   addSet: (
@@ -47,13 +48,13 @@ function syncSetToCloud(set: WorkoutSet) {
     .then(({ error }) => error && console.warn('Supabase set insert failed', error));
 }
 
-function syncBadgesToCloud(slugs: string[]) {
+function syncBadgesToCloud(slugs: string[], unlockedAt: string) {
   const userId = getCurrentUserId();
   if (!userId || slugs.length === 0) return;
   supabase
     .from('unlocked_achievements')
     .upsert(
-      slugs.map((achievement_slug) => ({ user_id: userId, achievement_slug })),
+      slugs.map((achievement_slug) => ({ user_id: userId, achievement_slug, unlocked_at: unlockedAt })),
       { onConflict: 'user_id,achievement_slug' }
     )
     .then(({ error }) => error && console.warn('Supabase badge upsert failed', error));
@@ -64,6 +65,7 @@ export const useWorkoutStore = create<WorkoutState>()(
     (set, get) => ({
       sets: [],
       unlockedAchievementSlugs: [],
+      unlockedAt: {},
 
       personalBestFor: (exerciseSlug) => {
         const metric = getExercise(exerciseSlug).metric;
@@ -120,13 +122,19 @@ export const useWorkoutStore = create<WorkoutState>()(
           })),
         ];
 
-        set({
+        const unlockedAt = new Date().toISOString();
+        const newSlugs = newBadges.map((b) => b.slug);
+        set((state) => ({
           sets: updatedSets,
-          unlockedAchievementSlugs: [...alreadyUnlocked, ...newBadges.map((b) => b.slug)],
-        });
+          unlockedAchievementSlugs: [...alreadyUnlocked, ...newSlugs],
+          unlockedAt: {
+            ...state.unlockedAt,
+            ...Object.fromEntries(newSlugs.map((slug) => [slug, unlockedAt])),
+          },
+        }));
 
         syncSetToCloud(newSet);
-        syncBadgesToCloud(newBadges.map((b) => b.slug));
+        syncBadgesToCloud(newSlugs, unlockedAt);
 
         return { isPr, newBadges };
       },

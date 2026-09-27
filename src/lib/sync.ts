@@ -21,7 +21,7 @@ async function hasRemoteData(userId: string): Promise<boolean> {
 }
 
 async function pushLocalDataToCloud(userId: string) {
-  const { sets, unlockedAchievementSlugs } = useWorkoutStore.getState();
+  const { sets, unlockedAchievementSlugs, unlockedAt } = useWorkoutStore.getState();
   const { week } = useProgramStore.getState();
   const { profile } = useProfileStore.getState();
   const { language } = useSettingsStore.getState();
@@ -54,7 +54,11 @@ async function pushLocalDataToCloud(userId: string) {
 
   if (unlockedAchievementSlugs.length > 0) {
     await supabase.from('unlocked_achievements').upsert(
-      unlockedAchievementSlugs.map((achievement_slug) => ({ user_id: userId, achievement_slug })),
+      unlockedAchievementSlugs.map((achievement_slug) => ({
+        user_id: userId,
+        achievement_slug,
+        unlocked_at: unlockedAt[achievement_slug] ?? new Date().toISOString(),
+      })),
       { onConflict: 'user_id,achievement_slug' }
     );
   }
@@ -80,7 +84,7 @@ async function pullCloudDataToLocal(userId: string) {
   const [profileRes, setsRes, unlockedRes, programRes] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
     supabase.from('workout_sets').select('*').eq('user_id', userId),
-    supabase.from('unlocked_achievements').select('achievement_slug').eq('user_id', userId),
+    supabase.from('unlocked_achievements').select('achievement_slug, unlocked_at').eq('user_id', userId),
     supabase.from('program_exercises').select('*').eq('user_id', userId).order('position'),
   ]);
 
@@ -117,6 +121,7 @@ async function pullCloudDataToLocal(userId: string) {
   if (unlockedRes.data) {
     useWorkoutStore.setState({
       unlockedAchievementSlugs: unlockedRes.data.map((r) => r.achievement_slug),
+      unlockedAt: Object.fromEntries(unlockedRes.data.map((r) => [r.achievement_slug, r.unlocked_at])),
     });
   }
 
@@ -153,7 +158,7 @@ export async function syncOnSignIn(userId: string) {
 // migrate" the next time someone signs into a *different* account on this
 // device, leaking one account's workouts/program into another's.
 function resetLocalDataForSignOut() {
-  useWorkoutStore.setState({ sets: [], unlockedAchievementSlugs: [] });
+  useWorkoutStore.setState({ sets: [], unlockedAchievementSlugs: [], unlockedAt: {} });
   useProgramStore.setState({ week: emptyWeek() });
   useProfileStore.setState((state) => ({
     profile: {
