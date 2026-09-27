@@ -1,11 +1,13 @@
 import { CheckCircle2 } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useT } from '../i18n/useT';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 
 export function EmailConfirmedScreen() {
   const { t } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>
@@ -18,7 +20,7 @@ export function EmailConfirmedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

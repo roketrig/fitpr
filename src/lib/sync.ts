@@ -1,6 +1,7 @@
 import { emptyWeek, useProgramStore } from '../store/programStore';
 import { useProfileStore } from '../store/profileStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useThemeStore } from '../store/themeStore';
 import { useCoachStore } from '../store/coachStore';
 import { useFoodLogStore } from '../store/foodLogStore';
 import { useWorkoutStore } from '../store/workoutStore';
@@ -24,6 +25,7 @@ async function pushLocalDataToCloud(userId: string) {
   const { week } = useProgramStore.getState();
   const { profile } = useProfileStore.getState();
   const { language } = useSettingsStore.getState();
+  const { paletteId } = useThemeStore.getState();
 
   await supabase
     .from('profiles')
@@ -33,6 +35,7 @@ async function pushLocalDataToCloud(userId: string) {
       height_cm: profile.heightCm,
       weight_kg: profile.weightKg,
       language,
+      theme_palette: paletteId,
     })
     .eq('id', userId);
 
@@ -95,6 +98,7 @@ async function pullCloudDataToLocal(userId: string) {
       },
     }));
     if (row.language) useSettingsStore.setState({ language: row.language as Language });
+    if (row.theme_palette) useThemeStore.setState({ paletteId: row.theme_palette });
   }
 
   if (setsRes.data) {
@@ -163,6 +167,7 @@ function resetLocalDataForSignOut() {
     },
   }));
   useSettingsStore.setState({ language: 'en' });
+  useThemeStore.setState({ paletteId: 'lime' });
   useCoachStore.setState({ coach: null, nutritionTarget: null });
   useFoodLogStore.setState({ todaysEntries: [] });
 }

@@ -1,7 +1,7 @@
 import { PersonStanding } from 'lucide-react-native';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 
 interface Props {
   value: number;
@@ -9,6 +9,8 @@ interface Props {
 }
 
 export function BodyweightVisual({ value, label }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const pop = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export function BodyweightVisual({ value, label }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center', height: 110 },
   iconWrap: {
     width: 72,

@@ -1,7 +1,7 @@
 import { Award, Check, Lock } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 
 interface Props {
   title: string;
@@ -20,6 +20,8 @@ export function AchievementCard({
   progress,
   progressLabel,
 }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={[styles.card, unlocked && styles.cardUnlocked]}>
       <View style={styles.topRow}>
@@ -53,7 +55,7 @@ export function AchievementCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,

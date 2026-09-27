@@ -17,7 +17,7 @@ import { unitKeyFor } from '../lib/metric';
 import { currentStreakDays } from '../lib/stats';
 import { useProfileStore } from '../store/profileStore';
 import { useWorkoutStore } from '../store/workoutStore';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 
 interface Row {
   key: string;
@@ -31,6 +31,8 @@ interface Row {
 
 export function AchievementsScreen() {
   const { t, exerciseName, unitLabel, language } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const gender = useProfileStore((s) => s.profile.gender);
   const sets = useWorkoutStore((s) => s.sets);
   const unlockedSlugs = useWorkoutStore((s) => s.unlockedAchievementSlugs);
@@ -153,7 +155,7 @@ export function AchievementsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   section: { paddingHorizontal: 16, marginBottom: 20 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

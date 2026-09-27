@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useT } from '../i18n/useT';
 import { deleteMyAccount } from '../lib/account';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 
 interface Props {
   onClose: () => void;
@@ -12,6 +12,8 @@ interface Props {
 
 export function DeleteAccountOverlay({ onClose, onDeleted }: Props) {
   const { t } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +59,7 @@ export function DeleteAccountOverlay({ onClose, onDeleted }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.7)',

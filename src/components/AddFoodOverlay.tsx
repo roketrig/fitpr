@@ -1,10 +1,10 @@
 import { ChevronLeft, Minus, Plus, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { computeFoodNutrition, defaultQuantityFor, Food, FOOD_CATEGORY_ORDER, FOODS, quantityStepFor } from '../constants/foods';
 import { useT } from '../i18n/useT';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 import { FoodLogEntry } from '../types';
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
 
 export function AddFoodOverlay({ onClose, onAdd }: Props) {
   const { t, foodName, foodCategoryLabel } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [customMode, setCustomMode] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -183,7 +185,7 @@ export function AddFoodOverlay({ onClose, onAdd }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFill, backgroundColor: colors.background, zIndex: 20 },
   header: {
     flexDirection: 'row',

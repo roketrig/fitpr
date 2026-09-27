@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 
 interface Stat {
   label: string;
@@ -8,6 +8,8 @@ interface Stat {
 }
 
 export function StatRow({ stats }: { stats: Stat[] }) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.card}>
       {stats.map((stat, i) => (
@@ -23,7 +25,7 @@ export function StatRow({ stats }: { stats: Stat[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: colors.card,

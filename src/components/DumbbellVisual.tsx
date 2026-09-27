@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 import { PLATE_COLORS } from '../lib/plates';
 
 interface Props {
@@ -19,6 +19,8 @@ function headSizeFor(perHandKg: number): number {
 }
 
 export function DumbbellVisual({ perHandKg, label }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const headSize = headSizeFor(perHandKg);
   const headDiameter = 26 + headSize * 1.6;
   const pop = useRef(new Animated.Value(1)).current;
@@ -54,7 +56,7 @@ export function DumbbellVisual({ perHandKg, label }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

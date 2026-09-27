@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DarkTheme, NavigationContainer, Theme } from '@react-navigation/native';
 import { Apple, CalendarDays, Dumbbell, Trophy, UserRound } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '../i18n/useT';
@@ -11,22 +11,24 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProgramScreen } from '../screens/ProgramScreen';
 import { WorkoutScreen } from '../screens/WorkoutScreen';
 import { useProfileStore } from '../store/profileStore';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 import { PTDashboardNavigator } from './PTDashboardNavigator';
 
 const Tab = createBottomTabNavigator();
 
-const navTheme: Theme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: colors.background,
-    card: colors.background,
-    border: colors.border,
-    primary: colors.lime,
-    text: colors.foreground,
-  },
-};
+function navThemeFor(colors: Colors): Theme {
+  return {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      background: colors.background,
+      card: colors.background,
+      border: colors.border,
+      primary: colors.lime,
+      text: colors.foreground,
+    },
+  };
+}
 
 const ICONS = {
   Workout: Dumbbell,
@@ -38,6 +40,7 @@ const ICONS = {
 
 function StudentTabs() {
   const { t } = useT();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
 
   return (
@@ -75,6 +78,8 @@ function StudentTabs() {
 
 export function RootNavigator() {
   const role = useProfileStore((s) => s.profile.role);
+  const colors = useColors();
+  const navTheme = useMemo(() => navThemeFor(colors), [colors]);
   // PTs manage clients from a desktop-oriented dashboard on the web build;
   // the native mobile app stays the student (and PT-on-the-go) experience.
   const showPtDashboard = Platform.OS === 'web' && role === 'pt';

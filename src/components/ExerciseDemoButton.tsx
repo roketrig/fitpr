@@ -1,14 +1,16 @@
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Play, X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { getExerciseClipUrl, hasExerciseClip } from '../constants/exerciseClips';
 import { useT } from '../i18n/useT';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 import { ExerciseSlug } from '../types';
 
 export function ExerciseDemoButton({ slug }: { slug: ExerciseSlug }) {
   const { t } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
 
   if (!hasExerciseClip(slug)) return null;
@@ -25,6 +27,8 @@ export function ExerciseDemoButton({ slug }: { slug: ExerciseSlug }) {
 }
 
 function DemoClipModal({ slug, onClose }: { slug: ExerciseSlug; onClose: () => void }) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const player = useVideoPlayer(getExerciseClipUrl(slug), (p) => {
     p.loop = true;
     p.play();
@@ -44,7 +48,7 @@ function DemoClipModal({ slug, onClose }: { slug: ExerciseSlug; onClose: () => v
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   button: {
     flexDirection: 'row',
     alignItems: 'center',

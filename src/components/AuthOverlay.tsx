@@ -1,5 +1,5 @@
 import { X } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useT } from '../i18n/useT';
 import { supabase } from '../lib/supabase';
 import { syncOnSignIn } from '../lib/sync';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 
 interface Props {
   onClose: () => void;
@@ -24,6 +24,8 @@ type Mode = 'signIn' | 'signUp';
 
 export function AuthOverlay({ onClose }: Props) {
   const { t } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -155,7 +157,7 @@ export function AuthOverlay({ onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: colors.background,

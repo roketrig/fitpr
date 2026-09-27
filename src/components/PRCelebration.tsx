@@ -1,11 +1,11 @@
 import * as Haptics from 'expo-haptics';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useT } from '../i18n/useT';
 import { getExercise } from '../constants/exercises';
 import { unitKeyFor } from '../lib/metric';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 import { UnlockedBadge } from '../store/workoutStore';
 
 interface Props {
@@ -18,6 +18,8 @@ const { width } = Dimensions.get('window');
 
 export function PRCelebration({ visible, newBadges, onDone }: Props) {
   const { t, exerciseName, unitLabel } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   useEffect(() => {
     if (visible) {
@@ -57,7 +59,7 @@ export function PRCelebration({ visible, newBadges, onDone }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',

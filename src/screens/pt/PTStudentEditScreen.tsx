@@ -1,6 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, Minus, Plus, Trash2, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -23,7 +23,7 @@ import {
   updateStudentExerciseTarget,
 } from '../../lib/coaching';
 import { PTDashboardParamList } from '../../navigation/PTDashboardNavigator';
-import { colors, fonts } from '../../theme';
+import { Colors, fonts, useColors } from '../../theme';
 import { CategoryKey, DayOfWeek, NutritionTarget, WeeklyProgram } from '../../types';
 
 const DAYS: DayOfWeek[] = [1, 2, 3, 4, 5, 6, 0];
@@ -32,6 +32,8 @@ type Route = RouteProp<PTDashboardParamList, 'PTStudentEdit'>;
 
 export function PTStudentEditScreen() {
   const { t, exerciseName, categoryLabel, weekdayShort, weekdayFull } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation();
   const route = useRoute<Route>();
   const { studentId, studentName } = route.params;
@@ -315,6 +317,8 @@ function TargetStepper({
   onDecrement: () => void;
   onIncrement: () => void;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.targetStepper}>
       <Text style={styles.targetLabel}>{label}</Text>
@@ -331,7 +335,7 @@ function TargetStepper({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, maxWidth: 720, width: '100%', alignSelf: 'center' },
   header: { paddingHorizontal: 24, paddingTop: 24 },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },

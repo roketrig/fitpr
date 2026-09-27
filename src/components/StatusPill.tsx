@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 
 interface Props {
   label: string;
@@ -8,16 +8,19 @@ interface Props {
   dot?: boolean;
 }
 
-export function StatusPill({ label, color = colors.lime, dot = true }: Props) {
+export function StatusPill({ label, color, dot = true }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const resolvedColor = color ?? colors.lime;
   return (
-    <View style={[styles.pill, { borderColor: color }]}>
-      {dot && <View style={[styles.dot, { backgroundColor: color }]} />}
-      <Text style={[styles.label, { color }]}>{label}</Text>
+    <View style={[styles.pill, { borderColor: resolvedColor }]}>
+      {dot && <View style={[styles.dot, { backgroundColor: resolvedColor }]} />}
+      <Text style={[styles.label, { color: resolvedColor }]}>{label}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

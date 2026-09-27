@@ -12,8 +12,11 @@ create table if not exists profiles (
   height_cm numeric,
   weight_kg numeric,
   language text not null default 'en' check (language in ('en', 'tr')),
+  theme_palette text not null default 'lime',
   created_at timestamptz not null default now()
 );
+
+alter table profiles add column if not exists theme_palette text not null default 'lime';
 
 alter table profiles enable row level security;
 

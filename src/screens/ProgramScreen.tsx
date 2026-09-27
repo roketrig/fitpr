@@ -1,5 +1,5 @@
 import { Minus, Plus, Trash2, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -14,13 +14,15 @@ import { CATEGORY_ORDER, EXERCISES, getExercise } from '../constants/exercises';
 import { useT } from '../i18n/useT';
 import { useAuthStore } from '../store/authStore';
 import { useProgramStore } from '../store/programStore';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 import { CategoryKey, DayOfWeek, ExerciseSlug } from '../types';
 
 const DAYS: DayOfWeek[] = [1, 2, 3, 4, 5, 6, 0]; // display Monday-first
 
 export function ProgramScreen() {
   const { t, exerciseName, categoryLabel, weekdayShort, weekdayFull } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const todayIndex = new Date().getDay() as DayOfWeek;
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(todayIndex);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -198,6 +200,8 @@ function TargetStepper({
   onDecrement: () => void;
   onIncrement: () => void;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.targetStepper}>
       <Text style={styles.targetLabel}>{label}</Text>
@@ -214,7 +218,7 @@ function TargetStepper({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   section: { paddingHorizontal: 16, marginBottom: 16 },
   eyebrow: { color: colors.muted, fontSize: 12, fontWeight: '700', letterSpacing: 1 },

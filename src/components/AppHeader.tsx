@@ -1,10 +1,12 @@
 import { Dumbbell } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useProfileStore } from '../store/profileStore';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 
 export function AppHeader() {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const displayName = useProfileStore((s) => s.profile.displayName);
   const initial = displayName.trim().charAt(0).toUpperCase() || '?';
 
@@ -25,7 +27,7 @@ export function AppHeader() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',

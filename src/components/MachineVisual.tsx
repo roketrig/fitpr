@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 
 interface Props {
   weightKg: number;
@@ -11,6 +11,8 @@ const STACK_SLOTS = 10;
 const KG_PER_SLOT = 10;
 
 export function MachineVisual({ weightKg, label }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const litSlots = Math.min(STACK_SLOTS, Math.max(1, Math.round(weightKg / KG_PER_SLOT)));
   const pop = useRef(new Animated.Value(1)).current;
 
@@ -44,7 +46,7 @@ export function MachineVisual({ weightKg, label }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -20,12 +20,14 @@ import { useAuthStore } from '../store/authStore';
 import { useCoachStore } from '../store/coachStore';
 import { useFoodLogStore } from '../store/foodLogStore';
 import { useProfileStore } from '../store/profileStore';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 
 const COACH_DASHBOARD_URL = 'https://fitpr.vercel.app';
 
 export function NutritionScreen() {
   const { t } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const session = useAuthStore((s) => s.session);
   const profile = useProfileStore((s) => s.profile);
   const setRoleAndReferralCode = useProfileStore((s) => s.setRoleAndReferralCode);
@@ -240,6 +242,8 @@ function ProgressStat({
   target: number | null;
   unit?: string;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const pct = target && target > 0 ? Math.min(1, value / target) : 0;
   return (
     <View style={styles.progressCard}>
@@ -256,7 +260,7 @@ function ProgressStat({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   section: { paddingHorizontal: 16, marginBottom: 20 },
   eyebrow: { color: colors.muted, fontSize: 12, fontWeight: '700', letterSpacing: 1 },

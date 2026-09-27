@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -15,13 +15,15 @@ import { fetchMyStudents } from '../../lib/coaching';
 import { supabase } from '../../lib/supabase';
 import { PTDashboardParamList } from '../../navigation/PTDashboardNavigator';
 import { useProfileStore } from '../../store/profileStore';
-import { colors, fonts } from '../../theme';
+import { Colors, fonts, useColors } from '../../theme';
 import { StudentSummary } from '../../types';
 
 type Nav = NativeStackNavigationProp<PTDashboardParamList, 'PTStudentList'>;
 
 export function PTStudentListScreen() {
   const { t } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation<Nav>();
   const referralCode = useProfileStore((s) => s.profile.referralCode);
   const [students, setStudents] = useState<StudentSummary[] | null>(null);
@@ -83,7 +85,7 @@ export function PTStudentListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, maxWidth: 720, width: '100%', alignSelf: 'center' },
   header: {
     flexDirection: 'row',

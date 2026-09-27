@@ -6,7 +6,7 @@ import { AuthOverlay } from '../components/AuthOverlay';
 import { DeleteAccountOverlay } from '../components/DeleteAccountOverlay';
 import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
-import { EXERCISES } from '../constants/exercises';
+import { CATEGORY_ORDER, EXERCISES } from '../constants/exercises';
 import { useT } from '../i18n/useT';
 import { supabase } from '../lib/supabase';
 import { unitKeyFor } from '../lib/metric';
@@ -14,12 +14,15 @@ import { longestStreakDays, totalVolumeKg, trainingDayKeys } from '../lib/stats'
 import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useThemeStore } from '../store/themeStore';
 import { useWorkoutStore } from '../store/workoutStore';
-import { colors, fonts } from '../theme';
-import { Language } from '../types';
+import { Colors, PALETTES, fonts, useColors } from '../theme';
+import { CategoryKey, Language } from '../types';
 
 export function ProfileScreen() {
   const { t, exerciseName, categoryLabel, unitLabel } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const profile = useProfileStore((s) => s.profile);
   const setDisplayName = useProfileStore((s) => s.setDisplayName);
   const setGender = useProfileStore((s) => s.setGender);
@@ -28,6 +31,8 @@ export function ProfileScreen() {
 
   const language = useSettingsStore((s) => s.language);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
+  const paletteId = useThemeStore((s) => s.paletteId);
+  const setPaletteId = useThemeStore((s) => s.setPaletteId);
 
   const sets = useWorkoutStore((s) => s.sets);
   const personalBestFor = useWorkoutStore((s) => s.personalBestFor);
@@ -35,6 +40,7 @@ export function ProfileScreen() {
   const session = useAuthStore((s) => s.session);
   const [authOpen, setAuthOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [recordSearch, setRecordSearch] = useState('');
 
   const stats = useMemo(
     () => ({
@@ -180,6 +186,29 @@ export function ProfileScreen() {
             <LanguageButton code="en" label="English" />
             <LanguageButton code="tr" label="Türkçe" />
           </View>
+
+          <Text style={styles.label}>{t('profile.colorTheme')}</Text>
+          <View style={styles.paletteRow}>
+            {PALETTES.map((p) => {
+              const active = p.id === paletteId;
+              return (
+                <Pressable
+                  key={p.id}
+                  style={[styles.paletteSwatch, active && styles.paletteSwatchActive]}
+                  onPress={() => setPaletteId(p.id)}
+                  accessibilityLabel={t(p.nameKey as never)}
+                >
+                  <View style={styles.paletteDotRow}>
+                    <View style={[styles.paletteDot, { backgroundColor: p.lime }]} />
+                    <View style={[styles.paletteDot, { backgroundColor: p.orange }]} />
+                  </View>
+                  <Text style={[styles.paletteLabel, active && styles.paletteLabelActive]} numberOfLines={1}>
+                    {t(p.nameKey as never)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -197,27 +226,45 @@ export function ProfileScreen() {
             <Text style={styles.eyebrow}>{t('profile.personalRecords')}</Text>
             <Text style={styles.allTime}>{t('profile.allTime')}</Text>
           </View>
-          <View style={styles.recordsCard}>
-            {EXERCISES.map((ex, i) => {
-              const best = personalBestFor(ex.slug);
-              const unit = unitLabel(unitKeyFor(ex.metric));
-              return (
-                <View key={ex.slug}>
-                  <View style={styles.recordRow}>
-                    <View>
-                      <Text style={styles.recordName}>{exerciseName(ex.slug)}</Text>
-                      <Text style={styles.recordCategory}>{categoryLabel(ex.category)}</Text>
-                    </View>
-                    <Text style={styles.recordValue}>
-                      {best > 0 ? best : '—'}
-                      {best > 0 && <Text style={styles.recordUnit}> {unit}</Text>}
-                    </Text>
-                  </View>
-                  {i < EXERCISES.length - 1 && <View style={styles.recordDivider} />}
+          <TextInput
+            style={styles.searchInput}
+            value={recordSearch}
+            onChangeText={setRecordSearch}
+            placeholder={t('profile.searchRecords')}
+            placeholderTextColor={colors.muted}
+          />
+          {(CATEGORY_ORDER as readonly CategoryKey[]).map((category) => {
+            const query = recordSearch.trim().toLowerCase();
+            const categoryExercises = EXERCISES.filter(
+              (ex) =>
+                ex.category === category &&
+                (!query || exerciseName(ex.slug).toLowerCase().includes(query))
+            );
+            if (categoryExercises.length === 0) return null;
+            return (
+              <View key={category} style={{ marginBottom: 14 }}>
+                <Text style={styles.recordCategoryHeader}>{categoryLabel(category)}</Text>
+                <View style={styles.recordsCard}>
+                  {categoryExercises.map((ex, i) => {
+                    const best = personalBestFor(ex.slug);
+                    const unit = unitLabel(unitKeyFor(ex.metric));
+                    return (
+                      <View key={ex.slug}>
+                        <View style={styles.recordRow}>
+                          <Text style={styles.recordName}>{exerciseName(ex.slug)}</Text>
+                          <Text style={styles.recordValue}>
+                            {best > 0 ? best : '—'}
+                            {best > 0 && <Text style={styles.recordUnit}> {unit}</Text>}
+                          </Text>
+                        </View>
+                        {i < categoryExercises.length - 1 && <View style={styles.recordDivider} />}
+                      </View>
+                    );
+                  })}
                 </View>
-              );
-            })}
-          </View>
+              </View>
+            );
+          })}
         </View>
 
         <View style={{ height: 24 }} />
@@ -226,7 +273,7 @@ export function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   section: { paddingHorizontal: 16, marginBottom: 20 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -275,13 +322,48 @@ const styles = StyleSheet.create({
   genderButtonTextActive: { color: colors.background },
   row: { flexDirection: 'row', gap: 12 },
   flex1: { flex: 1 },
+  paletteRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  paletteSwatch: {
+    width: 84,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    gap: 6,
+  },
+  paletteSwatchActive: { borderColor: colors.lime },
+  paletteDotRow: { flexDirection: 'row', gap: 4 },
+  paletteDot: { width: 16, height: 16, borderRadius: 8 },
+  paletteLabel: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  paletteLabelActive: { color: colors.foreground },
   allTime: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  searchInput: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.foreground,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  recordCategoryHeader: {
+    color: colors.lime,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
   recordsCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
-    marginTop: 12,
     paddingHorizontal: 16,
   },
   recordRow: {
@@ -291,7 +373,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   recordName: { color: colors.foreground, fontSize: 17, fontWeight: '700' },
-  recordCategory: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: 2 },
   recordValue: { color: colors.foreground, fontSize: 22, fontFamily: fonts.display },
   recordUnit: { fontSize: 11, color: colors.muted },
   recordDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },

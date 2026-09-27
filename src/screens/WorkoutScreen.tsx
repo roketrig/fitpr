@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Check, Flame } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,7 +26,7 @@ import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
 import { useProgramStore } from '../store/programStore';
 import { UnlockedBadge, useWorkoutStore } from '../store/workoutStore';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 import { DayOfWeek, ExerciseSlug } from '../types';
 
 const REPS_DEFAULT = 5;
@@ -33,7 +34,10 @@ const REPS_DEFAULT = 5;
 export function WorkoutScreen() {
   const navigation = useNavigation();
   const { t, exerciseName, categoryLabel, unitLabel, dateLocale } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
+  const displayName = useProfileStore((s) => s.profile.displayName);
   const authUserId = useAuthStore((s) => s.session?.user.id);
   useEffect(() => {
     if (authUserId) useProgramStore.getState().refreshFromRemote(authUserId);
@@ -115,6 +119,28 @@ export function WorkoutScreen() {
   const willBePr = currentValue > personalBest;
   const setsCompleted = Math.min(session.todaysSets.length, targetSets);
 
+  const allDoneToday = useMemo(
+    () =>
+      isProgramMode &&
+      programToday.every((p) => sessionStatsFor(sets, p.exerciseSlug).todaysSets.length >= p.targetSets),
+    [isProgramMode, programToday, sets]
+  );
+
+  const selectExerciseRef = useRef(selectExercise);
+  selectExerciseRef.current = selectExercise;
+  const exerciseIndexRef = useRef(exerciseIndex);
+  exerciseIndexRef.current = exerciseIndex;
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        Math.abs(gesture.dx) > 20 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+      onPanResponderRelease: (_, gesture) => {
+        if (gesture.dx <= -40) selectExerciseRef.current(exerciseIndexRef.current + 1);
+        else if (gesture.dx >= 40) selectExerciseRef.current(exerciseIndexRef.current - 1);
+      },
+    })
+  ).current;
+
   function handleSave() {
     const { isPr, newBadges } = addSet(
       activeSlug,
@@ -139,10 +165,15 @@ export function WorkoutScreen() {
                 .toLocaleDateString(dateLocale(), { weekday: 'long', month: 'long', day: 'numeric' })
                 .toUpperCase()}
             </Text>
-            <StatusPill label={t('workout.inProgress')} />
+            <StatusPill
+              label={isProgramMode ? t('workout.inProgress') : t('workout.restDay')}
+              color={isProgramMode ? colors.lime : colors.muted}
+            />
           </View>
 
-          <Text style={styles.title}>{t('workout.logWorkout')}</Text>
+          <Text style={styles.title}>
+            {displayName ? t('workout.greeting', { name: displayName }) : t('workout.logWorkout')}
+          </Text>
 
           <View style={styles.subtitleRow}>
             <Text style={styles.subtitle}>
@@ -163,6 +194,13 @@ export function WorkoutScreen() {
               </Text>
             </Pressable>
           )}
+
+          {allDoneToday && (
+            <View style={styles.doneBanner}>
+              <Check size={16} color={colors.background} strokeWidth={3} />
+              <Text style={styles.doneBannerText}>{t('workout.allDoneToday')}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -174,6 +212,7 @@ export function WorkoutScreen() {
           </View>
 
           <Animated.View
+            {...panResponder.panHandlers}
             style={{
               opacity: cardAnim,
               transform: [
@@ -226,11 +265,14 @@ export function WorkoutScreen() {
             <Text style={styles.cardLabel}>
               {t('workout.logSet')} {setsCompleted + 1}
             </Text>
-            <View style={styles.dotsRow}>
-              {Array.from({ length: targetSets }).map((_, i) => (
-                <View key={i} style={[styles.dot, i < setsCompleted && styles.dotFilled]} />
-              ))}
-            </View>
+          </View>
+
+          <View style={styles.progressRow}>
+            {Array.from({ length: targetSets }).map((_, i) => (
+              <View key={i} style={styles.progressTrack}>
+                {i < setsCompleted && <View style={styles.progressFill} />}
+              </View>
+            ))}
           </View>
 
           <View style={styles.stepperRow}>
@@ -289,7 +331,7 @@ export function WorkoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   section: { paddingHorizontal: 16, marginBottom: 16 },
   dateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -323,6 +365,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 10,
   },
+  doneBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.lime,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 14,
+    alignSelf: 'flex-start',
+  },
+  doneBannerText: { color: colors.background, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
   card: {
     marginHorizontal: 16,
     marginBottom: 16,
@@ -378,9 +432,17 @@ const styles = StyleSheet.create({
   },
   pbUnit: { fontSize: 12, color: colors.muted, fontFamily: undefined },
   pbDate: { flex: 1, color: colors.muted, fontSize: 11, fontWeight: '600', textAlign: 'right' },
-  dotsRow: { flexDirection: 'row', gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3, borderWidth: 1, borderColor: colors.muted },
-  dotFilled: { backgroundColor: colors.lime, borderColor: colors.lime },
+  progressRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
+  progressTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  progressFill: { flex: 1, backgroundColor: colors.lime, borderRadius: 4 },
   stepperRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
   saveButton: {
     flexDirection: 'row',

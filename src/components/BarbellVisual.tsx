@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { Colors, useColors } from '../theme';
 import { PLATE_COLORS, perSideKg, platesForSide } from '../lib/plates';
 
 interface Props {
@@ -13,6 +13,8 @@ function plateHeight(sizeKg: number): number {
 }
 
 export function BarbellVisual({ totalWeightKg, label }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const plates = platesForSide(perSideKg(totalWeightKg));
   const pop = useRef(new Animated.Value(1)).current;
 
@@ -58,7 +60,7 @@ export function BarbellVisual({ totalWeightKg, label }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',

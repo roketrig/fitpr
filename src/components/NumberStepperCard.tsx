@@ -1,7 +1,7 @@
 import { Minus, Plus } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Colors, fonts, useColors } from '../theme';
 
 interface Props {
   label: string;
@@ -12,6 +12,8 @@ interface Props {
 }
 
 export function NumberStepperCard({ label, value, unit, onDecrement, onIncrement }: Props) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.card}>
       <Text style={styles.label}>{label}</Text>
@@ -39,7 +41,7 @@ export function NumberStepperCard({ label, value, unit, onDecrement, onIncrement
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Colors) => StyleSheet.create({
   card: {
     flex: 1,
     backgroundColor: colors.panel,
