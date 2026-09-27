@@ -53,6 +53,35 @@ function deleteRemote(day: DayOfWeek, exerciseSlug: ExerciseSlug) {
     .then(({ error }) => error && console.warn('Supabase program delete failed', error));
 }
 
+// Moving a day overwrites whatever was on the target day, so both the old
+// source rows and any old target rows need clearing before the moved
+// entries land — three steps, done in order so a mid-failure can't leave
+// the same exercise duplicated on both days.
+async function moveDayRemote(from: DayOfWeek, to: DayOfWeek, entries: ProgramExercise[]) {
+  const userId = getCurrentUserId();
+  if (!userId) return;
+  try {
+    await supabase.from('program_exercises').delete().match({ user_id: userId, day_of_week: to });
+    await supabase.from('program_exercises').delete().match({ user_id: userId, day_of_week: from });
+    if (entries.length > 0) {
+      const { error } = await supabase.from('program_exercises').upsert(
+        entries.map((e, i) => ({
+          user_id: userId,
+          day_of_week: to,
+          exercise_slug: e.exerciseSlug,
+          target_sets: e.targetSets,
+          target_reps: e.targetReps,
+          position: i,
+        })),
+        { onConflict: 'user_id,day_of_week,exercise_slug' }
+      );
+      if (error) throw error;
+    }
+  } catch (error) {
+    console.warn('Supabase program move failed', error);
+  }
+}
+
 interface ProgramState {
   week: WeeklyProgram;
   getDay: (day: DayOfWeek) => ProgramExercise[];
@@ -64,6 +93,7 @@ interface ProgramState {
     patch: Partial<Pick<ProgramExercise, 'targetSets' | 'targetReps'>>
   ) => void;
   refreshFromRemote: (userId: string) => Promise<void>;
+  moveDay: (from: DayOfWeek, to: DayOfWeek) => void;
 }
 
 export const useProgramStore = create<ProgramState>()(
@@ -138,6 +168,15 @@ export const useProgramStore = create<ProgramState>()(
           });
         }
         set({ week });
+      },
+
+      moveDay: (from, to) => {
+        if (from === to) return;
+        const entries = get().week[from] ?? [];
+        set((state) => ({
+          week: { ...state.week, [to]: entries, [from]: [] },
+        }));
+        moveDayRemote(from, to, entries);
       },
     }),
     {

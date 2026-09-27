@@ -1,4 +1,4 @@
-import { Minus, Plus, Trash2, X } from 'lucide-react-native';
+import { ArrowRightLeft, Minus, Plus, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -26,18 +26,27 @@ export function ProgramScreen() {
   const todayIndex = new Date().getDay() as DayOfWeek;
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(todayIndex);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
 
   const authUserId = useAuthStore((s) => s.session?.user.id);
   useEffect(() => {
     if (authUserId) useProgramStore.getState().refreshFromRemote(authUserId);
   }, [authUserId]);
 
+  const week = useProgramStore((s) => s.week);
   const dayExercises = useProgramStore((s) => s.getDay(selectedDay));
   const addExerciseToDay = useProgramStore((s) => s.addExerciseToDay);
   const removeExerciseFromDay = useProgramStore((s) => s.removeExerciseFromDay);
   const updateExerciseTarget = useProgramStore((s) => s.updateExerciseTarget);
+  const moveDay = useProgramStore((s) => s.moveDay);
 
   const assignedSlugs = new Set(dayExercises.map((e) => e.exerciseSlug));
+
+  function handleMoveTo(target: DayOfWeek) {
+    moveDay(selectedDay, target);
+    setSelectedDay(target);
+    setMoveOpen(false);
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -69,7 +78,15 @@ export function ProgramScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.selectedDayLabel}>{weekdayFull(selectedDay)}</Text>
+          <View style={styles.selectedDayRow}>
+            <Text style={styles.selectedDayLabel}>{weekdayFull(selectedDay)}</Text>
+            {dayExercises.length > 0 && (
+              <Pressable style={styles.moveButton} onPress={() => setMoveOpen(true)}>
+                <ArrowRightLeft size={13} color={colors.lime} />
+                <Text style={styles.moveButtonText}>{t('program.moveDay')}</Text>
+              </Pressable>
+            )}
+          </View>
 
           {dayExercises.length === 0 ? (
             <View style={styles.emptyCard}>
@@ -185,6 +202,33 @@ export function ProgramScreen() {
           </SafeAreaView>
         </View>
       )}
+
+      {moveOpen && (
+        <View style={styles.moveOverlay}>
+          <View style={styles.moveCard}>
+            <Text style={styles.moveTitle}>{t('program.moveDayTitle')}</Text>
+            <Text style={styles.moveSubtitle}>
+              {t('program.moveDaySubtitle', { day: weekdayFull(selectedDay) })}
+            </Text>
+            <View style={{ gap: 8, marginTop: 16 }}>
+              {DAYS.filter((d) => d !== selectedDay).map((d) => {
+                const occupied = (week[d] ?? []).length > 0;
+                return (
+                  <Pressable key={d} style={styles.moveDayRow} onPress={() => handleMoveTo(d)}>
+                    <Text style={styles.moveDayName}>{weekdayFull(d)}</Text>
+                    {occupied && (
+                      <Text style={styles.moveDayWarning}>{t('program.moveDayOverwrite')}</Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable style={styles.moveCancelButton} onPress={() => setMoveOpen(false)}>
+              <Text style={styles.moveCancelButtonText}>{t('program.cancel')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -244,12 +288,60 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     marginTop: 4,
   },
   todayDotActive: { backgroundColor: colors.background },
+  selectedDayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   selectedDayLabel: {
     color: colors.foreground,
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 12,
   },
+  moveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  moveButtonText: { color: colors.lime, fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  moveOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    zIndex: 30,
+  },
+  moveCard: {
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    padding: 24,
+  },
+  moveTitle: { color: colors.foreground, fontSize: 20, fontFamily: fonts.display },
+  moveSubtitle: { color: colors.muted, fontSize: 13, marginTop: 6 },
+  moveDayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  moveDayName: { color: colors.foreground, fontSize: 14, fontWeight: '700' },
+  moveDayWarning: { color: colors.orange, fontSize: 11, fontWeight: '600' },
+  moveCancelButton: { paddingVertical: 16, alignItems: 'center', marginTop: 8 },
+  moveCancelButtonText: { color: colors.muted, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
   emptyCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
