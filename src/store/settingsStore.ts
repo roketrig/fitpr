@@ -5,9 +5,13 @@ import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import { Language } from '../types';
 
+export type WorkoutViewMode = 'carousel' | 'list';
+
 interface SettingsState {
   language: Language;
   setLanguage: (language: Language) => void;
+  workoutViewMode: WorkoutViewMode;
+  setWorkoutViewMode: (mode: WorkoutViewMode) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -24,6 +28,11 @@ export const useSettingsStore = create<SettingsState>()(
           .eq('id', userId)
           .then(({ error }) => error && console.warn('Supabase language update failed', error));
       },
+      // Device-local display preference — not synced to the account like
+      // language/theme are, since it's about how this screen renders here,
+      // not identity data tied to the user.
+      workoutViewMode: 'carousel',
+      setWorkoutViewMode: (workoutViewMode) => set({ workoutViewMode }),
     }),
     {
       name: 'fitpr-settings',

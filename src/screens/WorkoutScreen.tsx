@@ -25,6 +25,7 @@ import { currentStreakDays, sessionStatsFor, suggestedNextValue, trainingWeekNum
 import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
 import { useProgramStore } from '../store/programStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { UnlockedBadge, useWorkoutStore } from '../store/workoutStore';
 import { Colors, fonts, useColors } from '../theme';
 import { DayOfWeek, ExerciseSlug } from '../types';
@@ -38,6 +39,7 @@ export function WorkoutScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const displayName = useProfileStore((s) => s.profile.displayName);
+  const workoutViewMode = useSettingsStore((s) => s.workoutViewMode);
   const authUserId = useAuthStore((s) => s.session?.user.id);
   useEffect(() => {
     if (authUserId) useProgramStore.getState().refreshFromRemote(authUserId);
@@ -126,6 +128,18 @@ export function WorkoutScreen() {
     [isProgramMode, programToday, sets]
   );
 
+  const listRows = useMemo(
+    () =>
+      activeSlugs.map((slug) => {
+        const ex = getExercise(slug);
+        const programEntry = programToday.find((p) => p.exerciseSlug === slug);
+        const target = programEntry?.targetSets ?? SETS_PER_SESSION;
+        const completed = Math.min(sessionStatsFor(sets, slug).todaysSets.length, target);
+        return { slug, category: ex.category, completed, target };
+      }),
+    [activeSlugs, programToday, sets]
+  );
+
   const selectExerciseRef = useRef(selectExercise);
   selectExerciseRef.current = selectExercise;
   const exerciseIndexRef = useRef(exerciseIndex);
@@ -211,42 +225,68 @@ export function WorkoutScreen() {
             </Text>
           </View>
 
-          <Animated.View
-            {...panResponder.panHandlers}
-            style={{
-              opacity: cardAnim,
-              transform: [
-                { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
-              ],
-            }}
-          >
-            <View style={styles.exerciseSwitcher}>
-              <Pressable
-                style={styles.chevronButton}
-                onPress={() => selectExercise(exerciseIndex - 1)}
-                accessibilityLabel="Previous exercise"
-              >
-                <ChevronLeft size={22} color={colors.foreground} />
-              </Pressable>
-              <Text style={styles.exerciseName}>{exerciseName(activeSlug)}</Text>
-              <Pressable
-                style={styles.chevronButton}
-                onPress={() => selectExercise(exerciseIndex + 1)}
-                accessibilityLabel="Next exercise"
-              >
-                <ChevronRight size={22} color={colors.foreground} />
-              </Pressable>
+          {workoutViewMode === 'list' ? (
+            <View style={styles.exerciseList}>
+              {listRows.map((row, i) => {
+                const active = i === exerciseIndex;
+                return (
+                  <Pressable
+                    key={row.slug}
+                    style={[styles.listRow, active && styles.listRowActive]}
+                    onPress={() => selectExercise(i)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.listRowName, active && styles.listRowNameActive]}>
+                        {exerciseName(row.slug)}
+                      </Text>
+                      <Text style={styles.listRowCategory}>{categoryLabel(row.category)}</Text>
+                    </View>
+                    <Text style={[styles.listRowProgress, active && styles.listRowProgressActive]}>
+                      {row.completed}/{row.target}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              <ExerciseDemoButton slug={activeSlug} />
             </View>
-            <Text style={styles.category}>{categoryLabel(exercise.category)}</Text>
-            <ExerciseDemoButton slug={activeSlug} />
+          ) : (
+            <Animated.View
+              {...panResponder.panHandlers}
+              style={{
+                opacity: cardAnim,
+                transform: [
+                  { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+                ],
+              }}
+            >
+              <View style={styles.exerciseSwitcher}>
+                <Pressable
+                  style={styles.chevronButton}
+                  onPress={() => selectExercise(exerciseIndex - 1)}
+                  accessibilityLabel="Previous exercise"
+                >
+                  <ChevronLeft size={22} color={colors.foreground} />
+                </Pressable>
+                <Text style={styles.exerciseName}>{exerciseName(activeSlug)}</Text>
+                <Pressable
+                  style={styles.chevronButton}
+                  onPress={() => selectExercise(exerciseIndex + 1)}
+                  accessibilityLabel="Next exercise"
+                >
+                  <ChevronRight size={22} color={colors.foreground} />
+                </Pressable>
+              </View>
+              <Text style={styles.category}>{categoryLabel(exercise.category)}</Text>
+              <ExerciseDemoButton slug={activeSlug} />
 
-            <ExerciseVisual
-              exercise={exercise}
-              weightKg={weightKg}
-              reps={reps}
-              label={t('workout.tapToLoad')}
-            />
-          </Animated.View>
+              <ExerciseVisual
+                exercise={exercise}
+                weightKg={weightKg}
+                reps={reps}
+                label={t('workout.tapToLoad')}
+              />
+            </Animated.View>
+          )}
 
           <View style={styles.divider} />
 
@@ -389,6 +429,23 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardLabel: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
   cardLabelAccent: { color: colors.lime, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  exerciseList: { marginTop: 16, gap: 8 },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  listRowActive: { borderColor: colors.lime, backgroundColor: colors.card },
+  listRowName: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
+  listRowNameActive: { color: colors.lime },
+  listRowCategory: { color: colors.muted, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginTop: 2 },
+  listRowProgress: { color: colors.muted, fontSize: 13, fontWeight: '800' },
+  listRowProgressActive: { color: colors.lime },
   exerciseSwitcher: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -31,6 +31,8 @@ export function ProfileScreen() {
 
   const language = useSettingsStore((s) => s.language);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
+  const workoutViewMode = useSettingsStore((s) => s.workoutViewMode);
+  const setWorkoutViewMode = useSettingsStore((s) => s.setWorkoutViewMode);
   const paletteId = useThemeStore((s) => s.paletteId);
   const setPaletteId = useThemeStore((s) => s.setPaletteId);
 
@@ -185,6 +187,36 @@ export function ProfileScreen() {
           <View style={styles.genderRow}>
             <LanguageButton code="en" label="English" />
             <LanguageButton code="tr" label="Türkçe" />
+          </View>
+
+          <Text style={styles.label}>{t('profile.workoutView')}</Text>
+          <View style={styles.genderRow}>
+            <Pressable
+              style={[styles.genderButton, workoutViewMode === 'carousel' && styles.genderButtonActive]}
+              onPress={() => setWorkoutViewMode('carousel')}
+            >
+              <Text
+                style={[
+                  styles.genderButtonText,
+                  workoutViewMode === 'carousel' && styles.genderButtonTextActive,
+                ]}
+              >
+                {t('profile.workoutViewCarousel')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.genderButton, workoutViewMode === 'list' && styles.genderButtonActive]}
+              onPress={() => setWorkoutViewMode('list')}
+            >
+              <Text
+                style={[
+                  styles.genderButtonText,
+                  workoutViewMode === 'list' && styles.genderButtonTextActive,
+                ]}
+              >
+                {t('profile.workoutViewList')}
+              </Text>
+            </Pressable>
           </View>
 
           <Text style={styles.label}>{t('profile.colorTheme')}</Text>
