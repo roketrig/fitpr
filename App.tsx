@@ -1,3 +1,4 @@
+import { BebasNeue_400Regular } from '@expo-google-fonts/bebas-neue';
 import {
   RobotoCondensed_400Regular,
   RobotoCondensed_700Bold,
@@ -25,6 +26,7 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     RobotoCondensed_400Regular,
     RobotoCondensed_700Bold,
+    BebasNeue_400Regular,
   });
 
   if (!fontsLoaded) {

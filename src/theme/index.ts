@@ -56,7 +56,7 @@ export function useColors(): Colors {
 }
 
 export const fonts = {
-  display: 'RobotoCondensed_700Bold',
+  display: 'BebasNeue_400Regular',
   displayRegular: 'RobotoCondensed_400Regular',
   body: undefined, // system default
 };
