@@ -171,15 +171,22 @@ export function WorkoutScreen() {
   }
 
   function handleSave() {
-    const { isPr, newBadges } = addSet(
-      activeSlug,
-      exercise.metric === 'weight_reps' ? weightKg : 0,
-      reps,
-      gender
-    );
-    if (isPr) {
-      setCelebration({ visible: true, badges: newBadges });
-    }
+    // Deferred a frame so the press-out spring (which fires in the same
+    // tick as this) actually gets to start before addSet's heavier
+    // synchronous work (achievement checks, a store update that re-renders
+    // this whole screen) runs — without this the two competed for the JS
+    // thread right at release and the button felt like it stuttered.
+    requestAnimationFrame(() => {
+      const { isPr, newBadges } = addSet(
+        activeSlug,
+        exercise.metric === 'weight_reps' ? weightKg : 0,
+        reps,
+        gender
+      );
+      if (isPr) {
+        setCelebration({ visible: true, badges: newBadges });
+      }
+    });
   }
 
   return (

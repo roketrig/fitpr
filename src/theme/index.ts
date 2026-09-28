@@ -34,12 +34,23 @@ export interface Palette {
   seed?: string;
 }
 
+// Each non-lime palette is a deliberate two-hue story (roughly
+// complementary or analogous), not just two colors that happened to be
+// in the same reference swatch — that's what made the old "Royal Coral"
+// (coral + purple, no real relationship) read as off. The seed tints the
+// whole base toward the primary hue so the mood carries through text and
+// backgrounds too, not just the two accent roles.
 export const PALETTES: Palette[] = [
   { id: 'lime', nameKey: 'palette.lime', lime: '#c9f533', orange: '#ff744c' },
-  { id: 'coral', nameKey: 'palette.coral', lime: '#F35B54', orange: '#603F83', seed: '#F35B54' },
-  { id: 'bloom', nameKey: 'palette.bloom', lime: '#F5BEC7', orange: '#BBDF32', seed: '#F5BEC7' },
-  { id: 'fogrose', nameKey: 'palette.fogrose', lime: '#EDFF00', orange: '#BD4275', seed: '#BD4275' },
+  // Coral + teal — a classic warm/cool complementary pair.
+  { id: 'coral', nameKey: 'palette.coral', lime: '#FF6355', orange: '#2EC4B6', seed: '#FF6355' },
+  // Rose + warm gold — soft, analogous-leaning, "rose gold".
+  { id: 'bloom', nameKey: 'palette.bloom', lime: '#FF6B9D', orange: '#FFC145', seed: '#FF6B9D' },
+  // Amethyst + magenta — adjacent jewel tones, moody and rich.
+  { id: 'berry', nameKey: 'palette.berry', lime: '#9B5DE5', orange: '#F72585', seed: '#9B5DE5' },
+  // Aqua + caramel — cool/warm complementary, dessert-inspired.
   { id: 'ganache', nameKey: 'palette.ganache', lime: '#81D7D3', orange: '#C9A24B', seed: '#34292A' },
+  // Electric blue + amber — cool/warm complementary, high energy.
   { id: 'electric', nameKey: 'palette.electric', lime: '#3AA6FF', orange: '#FF9F1C', seed: '#3AA6FF' },
 ];
 
@@ -84,8 +95,8 @@ export function colorsForPalette(paletteId: string): Colors {
     panel: tintedGray(seed, 24, 0.16),
     card: tintedGray(seed, 29, 0.16),
     border: tintedGray(seed, 54, 0.2),
-    foreground: tintedGray(seed, 244, 0.035),
-    muted: tintedGray(seed, 148, 0.1),
+    foreground: tintedGray(seed, 244, 0.05),
+    muted: tintedGray(seed, 148, 0.16),
     lime: palette.lime,
     orange: palette.orange,
   };
