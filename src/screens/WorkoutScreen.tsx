@@ -48,15 +48,21 @@ export function WorkoutScreen() {
   const today = new Date().getDay() as DayOfWeek;
   const programToday = useProgramStore((s) => s.getDay(today));
   const isProgramMode = programToday.length > 0;
-  // A day with a program only browses that day's exercises — mixing in the
-  // full catalog defeats the point of having set up a program for today.
+  // Without a program for today there's nothing to log against — browsing
+  // the entire 70-exercise catalog as a fallback was confusing, so this is
+  // just empty and the screen shows a prompt to build today's program
+  // instead (see the isProgramMode branch below).
   const activeSlugs: ExerciseSlug[] = useMemo(() => {
     if (isProgramMode) return programToday.map((p) => p.exerciseSlug);
-    return EXERCISES.map((e) => e.slug);
+    return [];
   }, [programToday, isProgramMode]);
 
   const [exerciseIndex, setExerciseIndex] = useState(0);
-  const activeSlug = activeSlugs[Math.min(exerciseIndex, activeSlugs.length - 1)];
+  // Falls back to a real exercise even when activeSlugs is empty, purely so
+  // the hooks below always have something valid to compute against — the
+  // fallback is never actually shown, since the whole exercise UI is
+  // hidden whenever isProgramMode is false.
+  const activeSlug = activeSlugs[Math.min(exerciseIndex, activeSlugs.length - 1)] ?? EXERCISES[0].slug;
   const exercise = getExercise(activeSlug);
   const programEntry = programToday.find((p) => p.exerciseSlug === activeSlug);
   const targetSets = programEntry?.targetSets ?? SETS_PER_SESSION;
@@ -104,6 +110,7 @@ export function WorkoutScreen() {
   const [weightKg, setWeightKg] = useState(() => suggestedNextValue(sets, activeSlug, personalBest));
 
   function selectExercise(nextIndex: number) {
+    if (activeSlugs.length === 0) return;
     const wrapped = (nextIndex + activeSlugs.length) % activeSlugs.length;
     setExerciseIndex(wrapped);
     const nextSlug = activeSlugs[wrapped];
@@ -155,6 +162,14 @@ export function WorkoutScreen() {
     })
   ).current;
 
+  const saveScale = useRef(new Animated.Value(1)).current;
+  function handleSavePressIn() {
+    Animated.spring(saveScale, { toValue: 0.95, useNativeDriver: true, speed: 50 }).start();
+  }
+  function handleSavePressOut() {
+    Animated.spring(saveScale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 10 }).start();
+  }
+
   function handleSave() {
     const { isPr, newBadges } = addSet(
       activeSlug,
@@ -191,7 +206,9 @@ export function WorkoutScreen() {
 
           <View style={styles.subtitleRow}>
             <Text style={styles.subtitle}>
-              {isProgramMode ? t('workout.powerSession') : t('workout.freeSession')}{' '}
+              {isProgramMode
+                ? t('workout.exerciseCount', { count: programToday.length })
+                : t('workout.noProgramShort')}{' '}
               <Text style={styles.subtitleDim}>/</Text> {t('workout.week')} {week}
             </Text>
             <View style={styles.streakRow}>
@@ -201,14 +218,6 @@ export function WorkoutScreen() {
           </View>
           <Text style={styles.streakLabel}>{t('workout.dayStreak')}</Text>
 
-          {!isProgramMode && (
-            <Pressable onPress={() => navigation.navigate('Program' as never)}>
-              <Text style={styles.freeSessionHint}>
-                {t('workout.noProgramToday')} {t('workout.editProgram')}
-              </Text>
-            </Pressable>
-          )}
-
           {allDoneToday && (
             <View style={styles.doneBanner}>
               <Check size={16} color={colors.background} strokeWidth={3} />
@@ -217,6 +226,18 @@ export function WorkoutScreen() {
           )}
         </View>
 
+        {!isProgramMode ? (
+          <View style={styles.card}>
+            <Text style={styles.emptyProgramText}>{t('workout.emptyProgramPrompt')}</Text>
+            <Pressable
+              style={styles.addExerciseButton}
+              onPress={() => navigation.navigate('Program' as never)}
+            >
+              <Text style={styles.addExerciseButtonText}>{t('workout.goToProgram')}</Text>
+            </Pressable>
+          </View>
+        ) : (
+        <>
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardLabel}>{t('workout.chooseExercise')}</Text>
@@ -343,11 +364,13 @@ export function WorkoutScreen() {
             />
           </View>
 
-          <Pressable style={styles.saveButton} onPress={handleSave}>
-            <Check size={18} color={colors.background} strokeWidth={3} />
-            <Text style={styles.saveButtonText}>
-              {willBePr ? t('workout.saveSetPr') : t('workout.saveSet')}
-            </Text>
+          <Pressable onPress={handleSave} onPressIn={handleSavePressIn} onPressOut={handleSavePressOut}>
+            <Animated.View style={[styles.saveButton, { transform: [{ scale: saveScale }] }]}>
+              <Check size={18} color={colors.background} strokeWidth={3} />
+              <Text style={styles.saveButtonText}>
+                {willBePr ? t('workout.saveSetPr') : t('workout.saveSet')}
+              </Text>
+            </Animated.View>
           </Pressable>
         </View>
 
@@ -358,6 +381,8 @@ export function WorkoutScreen() {
             { label: t('workout.lastSession'), value: `${session.lastSessionVolume} ${unitLabel(unit)}` },
           ]}
         />
+        </>
+        )}
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -399,12 +424,20 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     letterSpacing: 1,
     textAlign: 'right',
   },
-  freeSessionHint: {
-    color: colors.lime,
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 10,
+  emptyProgramText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
   },
+  addExerciseButton: {
+    backgroundColor: colors.lime,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  addExerciseButtonText: { color: colors.background, fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
   doneBanner: {
     flexDirection: 'row',
     alignItems: 'center',

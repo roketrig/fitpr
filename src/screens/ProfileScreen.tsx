@@ -95,9 +95,14 @@ export function ProfileScreen() {
             </View>
             <Pressable
               onPress={() => (session ? supabase.auth.signOut() : setAuthOpen(true))}
-              style={styles.signInButton}
+              style={[styles.signInButton, session ? styles.signOutButton : styles.signInButtonFilled]}
             >
-              <Text style={styles.signInButtonText}>
+              <Text
+                style={[
+                  styles.signInButtonText,
+                  session ? styles.signOutButtonText : styles.signInButtonTextFilled,
+                ]}
+              >
                 {session ? t('profile.signOut') : t('profile.signIn')}
               </Text>
             </Pressable>
@@ -321,8 +326,17 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   },
   avatarText: { color: colors.lime, fontSize: 22, fontWeight: '800' },
   identityCol: { flex: 1 },
-  signInButton: { paddingHorizontal: 12, paddingVertical: 8 },
-  signInButtonText: { color: colors.lime, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  signInButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  signInButtonFilled: { backgroundColor: colors.lime, borderColor: colors.lime },
+  signOutButton: { backgroundColor: 'transparent', borderColor: colors.orange },
+  signInButtonText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  signInButtonTextFilled: { color: colors.background },
+  signOutButtonText: { color: colors.orange },
   deleteAccountLink: { alignSelf: 'center', marginTop: 18 },
   deleteAccountLinkText: { color: colors.muted, fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' },
   name: { color: colors.foreground, fontSize: 24, fontFamily: fonts.display },
