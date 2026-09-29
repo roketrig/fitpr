@@ -11,6 +11,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProgramScreen } from '../screens/ProgramScreen';
 import { WorkoutScreen } from '../screens/WorkoutScreen';
 import { useProfileStore } from '../store/profileStore';
+import { useUiModeStore } from '../store/uiModeStore';
 import { Colors, useColors } from '../theme';
 import { PTDashboardNavigator } from './PTDashboardNavigator';
 
@@ -78,11 +79,15 @@ function StudentTabs() {
 
 export function RootNavigator() {
   const role = useProfileStore((s) => s.profile.role);
+  const ptViewingAsStudent = useUiModeStore((s) => s.ptViewingAsStudent);
   const colors = useColors();
   const navTheme = useMemo(() => navThemeFor(colors), [colors]);
   // PTs manage clients from a desktop-oriented dashboard on the web build;
   // the native mobile app stays the student (and PT-on-the-go) experience.
-  const showPtDashboard = Platform.OS === 'web' && role === 'pt';
+  // A PT can flip ptViewingAsStudent to see their own personal FitPR
+  // experience instead — otherwise the web build never offered them
+  // anything but the dashboard.
+  const showPtDashboard = Platform.OS === 'web' && role === 'pt' && !ptViewingAsStudent;
 
   return (
     <NavigationContainer theme={navTheme}>

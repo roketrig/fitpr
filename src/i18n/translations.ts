@@ -322,6 +322,7 @@ const en = {
   'nav.workout': 'Workout',
   'nav.achievements': 'Achievements',
   'nav.profile': 'Profile',
+  'nav.backToPtPanel': 'BACK TO PT PANEL',
   'nav.program': 'Program',
 
   'program.title': 'WEEKLY PROGRAM',
@@ -354,6 +355,7 @@ const en = {
   'coach.noTarget': 'Your coach hasn’t set a nutrition target yet.',
 
   'pt.dashboardTitle': 'CLIENTS',
+  'pt.viewMyWorkouts': 'MY WORKOUTS',
   'pt.yourCode': 'Your referral code',
   'pt.noStudents': 'No clients linked yet. Share your referral code to get started.',
   'pt.selectStudent': 'Select a client to manage their plan',
@@ -487,6 +489,7 @@ const tr: Record<keyof typeof en, string> = {
   'nav.workout': 'Antrenman',
   'nav.achievements': 'Başarımlar',
   'nav.profile': 'Profil',
+  'nav.backToPtPanel': 'PT PANELİNE DÖN',
   'nav.program': 'Program',
 
   'program.title': 'HAFTALIK PROGRAM',
@@ -519,6 +522,7 @@ const tr: Record<keyof typeof en, string> = {
   'coach.noTarget': 'Koçun henüz bir beslenme hedefi belirlemedi.',
 
   'pt.dashboardTitle': 'DANIŞANLAR',
+  'pt.viewMyWorkouts': 'ANTRENMANLARIM',
   'pt.yourCode': 'Referans kodun',
   'pt.noStudents': 'Henüz bağlı danışan yok. Başlamak için referans kodunu paylaş.',
   'pt.selectStudent': 'Planını düzenlemek için bir danışan seç',

@@ -15,6 +15,7 @@ import { fetchMyStudents } from '../../lib/coaching';
 import { supabase } from '../../lib/supabase';
 import { PTDashboardParamList } from '../../navigation/PTDashboardNavigator';
 import { useProfileStore } from '../../store/profileStore';
+import { useUiModeStore } from '../../store/uiModeStore';
 import { Colors, fonts, useColors } from '../../theme';
 import { StudentSummary } from '../../types';
 
@@ -42,9 +43,14 @@ export function PTStudentListScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('pt.dashboardTitle')}</Text>
-        <Pressable onPress={() => supabase.auth.signOut()}>
-          <Text style={styles.signOut}>{t('pt.signOut')}</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => useUiModeStore.getState().setPtViewingAsStudent(true)}>
+            <Text style={styles.myWorkoutLink}>{t('pt.viewMyWorkouts')}</Text>
+          </Pressable>
+          <Pressable onPress={() => supabase.auth.signOut()}>
+            <Text style={styles.signOut}>{t('pt.signOut')}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.codeCard}>
@@ -95,6 +101,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     paddingTop: 24,
   },
   title: { color: colors.foreground, fontSize: 32, fontFamily: fonts.display },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  myWorkoutLink: { color: colors.lime, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   signOut: { color: colors.orange, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   codeCard: {
     marginHorizontal: 24,
