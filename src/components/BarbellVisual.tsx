@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Colors, useColors } from '../theme';
-import { PLATE_COLORS, perSideKg, platesForSide } from '../lib/plates';
+import { getPlateColor, perSideKg, platesForSide } from '../lib/plates';
 
 interface Props {
   totalWeightKg: number;
@@ -35,7 +35,7 @@ export function BarbellVisual({ totalWeightKg, label }: Props) {
               key={i}
               style={[
                 styles.plate,
-                { height: plateHeight(size), backgroundColor: PLATE_COLORS[size] ?? colors.lime },
+                { height: plateHeight(size), backgroundColor: getPlateColor(size, colors.lime) },
               ]}
             />
           ))}
@@ -47,7 +47,7 @@ export function BarbellVisual({ totalWeightKg, label }: Props) {
               key={i}
               style={[
                 styles.plate,
-                { height: plateHeight(size), backgroundColor: PLATE_COLORS[size] ?? colors.lime },
+                { height: plateHeight(size), backgroundColor: getPlateColor(size, colors.lime) },
               ]}
             />
           ))}
