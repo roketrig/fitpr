@@ -1,6 +1,7 @@
 import { getExercise } from '../constants/exercises';
 import { supabase } from './supabase';
 import {
+  CheckinSubmission,
   CoachLink,
   DayOfWeek,
   ExerciseSlug,
@@ -10,6 +11,26 @@ import {
   WeeklyProgram,
 } from '../types';
 import { emptyWeek } from '../store/programStore';
+
+function toCheckinSubmission(row: {
+  id: string;
+  student_id: string;
+  photo_path: string;
+  weight_kg: number | null;
+  submitted_at: string;
+  pt_comment: string | null;
+  pt_commented_at: string | null;
+}): CheckinSubmission {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    photoPath: row.photo_path,
+    weightKg: row.weight_kg,
+    submittedAt: row.submitted_at,
+    ptComment: row.pt_comment,
+    ptCommentedAt: row.pt_commented_at,
+  };
+}
 
 export async function becomePT(): Promise<string> {
   const { data, error } = await supabase.rpc('become_pt');
@@ -176,4 +197,60 @@ export async function fetchStudentNutritionTarget(studentId: string): Promise<Nu
     .eq('student_id', studentId)
     .maybeSingle();
   return { calories: data?.calories ?? null, proteinG: data?.protein_g ?? null };
+}
+
+export async function setCheckinDay(studentId: string, day: DayOfWeek | null): Promise<void> {
+  const { error } = await supabase
+    .from('pt_student_links')
+    .update({ checkin_day: day })
+    .eq('student_id', studentId);
+  if (error) throw error;
+}
+
+export async function fetchStudentCheckinDay(studentId: string): Promise<DayOfWeek | null> {
+  const { data } = await supabase
+    .from('pt_student_links')
+    .select('checkin_day')
+    .eq('student_id', studentId)
+    .maybeSingle();
+  return (data?.checkin_day ?? null) as DayOfWeek | null;
+}
+
+export async function fetchMyCheckinDay(): Promise<DayOfWeek | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) return null;
+  return fetchStudentCheckinDay(userId);
+}
+
+export async function fetchStudentCheckins(studentId: string): Promise<CheckinSubmission[]> {
+  const { data, error } = await supabase
+    .from('checkin_photos')
+    .select('id, student_id, photo_path, weight_kg, submitted_at, pt_comment, pt_commented_at')
+    .eq('student_id', studentId)
+    .order('submitted_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map(toCheckinSubmission);
+}
+
+export async function fetchMyCheckins(): Promise<CheckinSubmission[]> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) return [];
+  return fetchStudentCheckins(userId);
+}
+
+export async function submitCheckin(photoPath: string, weightKg: number | null): Promise<void> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) throw new Error('Not signed in');
+  const { error } = await supabase
+    .from('checkin_photos')
+    .insert({ student_id: userId, photo_path: photoPath, weight_kg: weightKg });
+  if (error) throw error;
+}
+
+export async function commentOnCheckin(checkinId: string, comment: string): Promise<void> {
+  const { error } = await supabase.rpc('comment_on_checkin', { checkin_id: checkinId, comment });
+  if (error) throw error;
 }

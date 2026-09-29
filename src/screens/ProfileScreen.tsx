@@ -1,23 +1,37 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Camera } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { AuthOverlay } from '../components/AuthOverlay';
 import { DeleteAccountOverlay } from '../components/DeleteAccountOverlay';
 import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
+import { WeeklyVolumeChart } from '../components/WeeklyVolumeChart';
 import { CATEGORY_ORDER, EXERCISES } from '../constants/exercises';
 import { useT } from '../i18n/useT';
+import { fetchMyCheckinDay, fetchMyCheckins, submitCheckin } from '../lib/coaching';
+import { getPublicImageUrl, getSignedImageUrl, pickImage, uploadImage } from '../lib/media';
 import { supabase } from '../lib/supabase';
 import { unitKeyFor } from '../lib/metric';
-import { longestStreakDays, totalVolumeKg, trainingDayKeys } from '../lib/stats';
+import {
+  averageSessionVolumeKg,
+  currentStreakDays,
+  longestStreakDays,
+  mostTrainedExercise,
+  setsInCurrentMonth,
+  statsForCurrentMonth,
+  totalVolumeKg,
+  trainingDayKeys,
+  weeklyVolumeSeries,
+} from '../lib/stats';
 import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useThemeStore } from '../store/themeStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { Colors, PALETTES, fonts, useColors } from '../theme';
-import { CategoryKey, Language } from '../types';
+import { CategoryKey, CheckinSubmission, DayOfWeek, Language } from '../types';
 
 export function ProfileScreen() {
   const { t, exerciseName, categoryLabel, unitLabel } = useT();
@@ -28,6 +42,8 @@ export function ProfileScreen() {
   const setGender = useProfileStore((s) => s.setGender);
   const setHeightCm = useProfileStore((s) => s.setHeightCm);
   const setWeightKg = useProfileStore((s) => s.setWeightKg);
+  const setAvatarUrl = useProfileStore((s) => s.setAvatarUrl);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const language = useSettingsStore((s) => s.language);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
@@ -43,8 +59,9 @@ export function ProfileScreen() {
   const [authOpen, setAuthOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [recordSearch, setRecordSearch] = useState('');
+  const [statsPeriod, setStatsPeriod] = useState<'all' | 'month'>('all');
 
-  const stats = useMemo(
+  const allTimeStats = useMemo(
     () => ({
       workouts: trainingDayKeys(sets).length,
       totalKg: totalVolumeKg(sets),
@@ -52,8 +69,97 @@ export function ProfileScreen() {
     }),
     [sets]
   );
+  const monthStats = useMemo(() => statsForCurrentMonth(sets), [sets]);
+  const stats =
+    statsPeriod === 'month'
+      ? { ...monthStats, bestStreak: allTimeStats.bestStreak }
+      : allTimeStats;
+
+  const periodSets = useMemo(
+    () => (statsPeriod === 'month' ? setsInCurrentMonth(sets) : sets),
+    [sets, statsPeriod]
+  );
+  const avgSessionVolume = useMemo(() => averageSessionVolumeKg(periodSets), [periodSets]);
+  const topExercise = useMemo(() => mostTrainedExercise(periodSets), [periodSets]);
+  const weeklyVolume = useMemo(() => weeklyVolumeSeries(sets, 8), [sets]);
+  const liveStreak = useMemo(() => currentStreakDays(sets), [sets]);
 
   const initial = profile.displayName.trim().charAt(0).toUpperCase() || '?';
+
+  const [checkinDay, setCheckinDayState] = useState<DayOfWeek | null>(null);
+  const [checkins, setCheckins] = useState<CheckinSubmission[]>([]);
+  const [checkinPhotoUri, setCheckinPhotoUri] = useState<string | null>(null);
+  const [checkinWeight, setCheckinWeight] = useState('');
+  const [checkinSubmitting, setCheckinSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!session) return;
+    fetchMyCheckinDay().then(setCheckinDayState);
+    fetchMyCheckins().then(setCheckins);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
+
+  const latestCheckin = checkins[0] ?? null;
+  const daysSinceLastCheckin = latestCheckin
+    ? (Date.now() - new Date(latestCheckin.submittedAt).getTime()) / 86400000
+    : Infinity;
+  const showCheckinPrompt =
+    checkinDay !== null && new Date().getDay() === checkinDay && daysSinceLastCheckin >= 6;
+
+  function handlePickCheckinPhoto() {
+    Alert.alert(t('profile.changePhoto'), undefined, [
+      { text: t('profile.takePhoto'), onPress: async () => setCheckinPhotoUri(await pickImage('camera')) },
+      { text: t('profile.chooseFromLibrary'), onPress: async () => setCheckinPhotoUri(await pickImage('library')) },
+      { text: t('profile.cancel'), style: 'cancel' },
+    ]);
+  }
+
+  async function handleSubmitCheckin() {
+    if (!checkinPhotoUri || !session || checkinSubmitting) return;
+    setCheckinSubmitting(true);
+    try {
+      const path = `${session.user.id}/${Date.now()}.jpg`;
+      await uploadImage('checkin-photos', path, checkinPhotoUri);
+      await submitCheckin(path, checkinWeight ? Number(checkinWeight) : null);
+      setCheckinPhotoUri(null);
+      setCheckinWeight('');
+      setCheckins(await fetchMyCheckins());
+    } catch (e) {
+      console.warn('Check-in submit failed', e);
+      Alert.alert(t('profile.photoUploadError'));
+    } finally {
+      setCheckinSubmitting(false);
+    }
+  }
+
+  async function handleChangeAvatar() {
+    if (!session) {
+      setAuthOpen(true);
+      return;
+    }
+    Alert.alert(t('profile.changePhoto'), undefined, [
+      { text: t('profile.takePhoto'), onPress: () => runAvatarUpload('camera') },
+      { text: t('profile.chooseFromLibrary'), onPress: () => runAvatarUpload('library') },
+      { text: t('profile.cancel'), style: 'cancel' },
+    ]);
+  }
+
+  async function runAvatarUpload(source: 'camera' | 'library') {
+    const uri = await pickImage(source);
+    if (!uri || !session) return;
+    setAvatarUploading(true);
+    try {
+      const path = `${session.user.id}/avatar.jpg`;
+      await uploadImage('avatars', path, uri);
+      const url = `${getPublicImageUrl('avatars', path)}?t=${Date.now()}`;
+      setAvatarUrl(url);
+    } catch (e) {
+      console.warn('Avatar upload failed', e);
+      Alert.alert(t('profile.photoUploadError'));
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   function LanguageButton({ code, label }: { code: Language; label: string }) {
     const active = language === code;
@@ -84,9 +190,20 @@ export function ProfileScreen() {
           </View>
 
           <View style={styles.identityRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initial}</Text>
-            </View>
+            <Pressable style={styles.avatarWrap} onPress={handleChangeAvatar}>
+              <View style={[styles.avatar, !profile.avatarUrl && styles.avatarEmpty]}>
+                {avatarUploading ? (
+                  <ActivityIndicator color={colors.lime} />
+                ) : profile.avatarUrl ? (
+                  <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>{initial}</Text>
+                )}
+              </View>
+              <View style={styles.avatarBadge}>
+                <Camera size={13} color={colors.background} strokeWidth={2.5} />
+              </View>
+            </Pressable>
             <View style={styles.identityCol}>
               <Text style={styles.name}>{profile.displayName || t('profile.unnamedLifter')}</Text>
               <Text style={styles.memberSince} numberOfLines={1} ellipsizeMode="tail">
@@ -121,6 +238,50 @@ export function ProfileScreen() {
             onClose={() => setDeleteOpen(false)}
             onDeleted={() => setDeleteOpen(false)}
           />
+        )}
+
+        {session && checkinDay !== null && (
+          <View style={styles.section}>
+            <Text style={styles.eyebrow}>{t('profile.checkin')}</Text>
+            {showCheckinPrompt && (
+              <View style={[styles.card, { marginTop: 12 }]}>
+                <Text style={styles.checkinPromptTitle}>{t('profile.checkinDueToday')}</Text>
+                <Pressable style={styles.checkinPhotoButton} onPress={handlePickCheckinPhoto}>
+                  {checkinPhotoUri ? (
+                    <Image source={{ uri: checkinPhotoUri }} style={styles.checkinPhotoPreview} />
+                  ) : (
+                    <Text style={styles.checkinPhotoButtonText}>{t('nutrition.addPhoto')}</Text>
+                  )}
+                </Pressable>
+                <TextInput
+                  style={[styles.input, { marginTop: 12 }]}
+                  value={checkinWeight}
+                  onChangeText={setCheckinWeight}
+                  keyboardType="numeric"
+                  placeholder={t('profile.weightKg')}
+                  placeholderTextColor={colors.muted}
+                />
+                <Pressable
+                  style={styles.checkinSubmitButton}
+                  onPress={handleSubmitCheckin}
+                  disabled={!checkinPhotoUri || checkinSubmitting}
+                >
+                  {checkinSubmitting ? (
+                    <ActivityIndicator color={colors.background} />
+                  ) : (
+                    <Text style={styles.checkinSubmitButtonText}>{t('profile.submitCheckin')}</Text>
+                  )}
+                </Pressable>
+              </View>
+            )}
+            {checkins.length > 0 && (
+              <View style={{ marginTop: 12, gap: 8 }}>
+                {checkins.slice(0, 5).map((c) => (
+                  <CheckinHistoryRow key={c.id} checkin={c} />
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         <View style={styles.section}>
@@ -249,6 +410,26 @@ export function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          <View style={styles.periodToggleRow}>
+            <Pressable
+              style={[styles.periodButton, statsPeriod === 'all' && styles.periodButtonActive]}
+              onPress={() => setStatsPeriod('all')}
+            >
+              <Text style={[styles.periodButtonText, statsPeriod === 'all' && styles.periodButtonTextActive]}>
+                {t('profile.allTime')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.periodButton, statsPeriod === 'month' && styles.periodButtonActive]}
+              onPress={() => setStatsPeriod('month')}
+            >
+              <Text
+                style={[styles.periodButtonText, statsPeriod === 'month' && styles.periodButtonTextActive]}
+              >
+                {t('profile.thisMonth')}
+              </Text>
+            </Pressable>
+          </View>
           <StatRow
             stats={[
               { label: t('profile.workouts'), value: String(stats.workouts) },
@@ -256,6 +437,21 @@ export function ProfileScreen() {
               { label: t('profile.bestStreak'), value: String(stats.bestStreak) },
             ]}
           />
+          <View style={{ marginTop: 10 }}>
+            <StatRow
+              stats={[
+                { label: t('profile.currentStreak'), value: String(liveStreak) },
+                { label: t('profile.avgSession'), value: String(avgSessionVolume) },
+                {
+                  label: t('profile.topExercise'),
+                  value: topExercise ? exerciseName(topExercise.exerciseSlug) : '—',
+                },
+              ]}
+            />
+          </View>
+
+          <Text style={styles.chartTitle}>{t('profile.weeklyVolume')}</Text>
+          <WeeklyVolumeChart buckets={weeklyVolume} />
         </View>
 
         <View style={styles.section}>
@@ -310,12 +506,49 @@ export function ProfileScreen() {
   );
 }
 
+function CheckinHistoryRow({ checkin }: { checkin: CheckinSubmission }) {
+  const { t } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSignedImageUrl('checkin-photos', checkin.photoPath).then((signed) => {
+      if (!cancelled) setUrl(signed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [checkin.photoPath]);
+
+  return (
+    <View style={styles.checkinHistoryRow}>
+      {url ? (
+        <Image source={{ uri: url }} style={styles.checkinHistoryThumb} />
+      ) : (
+        <View style={styles.checkinHistoryThumb} />
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={styles.checkinHistoryDate}>{new Date(checkin.submittedAt).toLocaleDateString()}</Text>
+        {checkin.weightKg != null && (
+          <Text style={styles.checkinHistoryWeight}>{checkin.weightKg} kg</Text>
+        )}
+        {checkin.ptComment && (
+          <Text style={styles.checkinHistoryComment}>{`${t('profile.coachComment')}: ${checkin.ptComment}`}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
 const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   section: { paddingHorizontal: 16, marginBottom: 20 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   eyebrow: { color: colors.muted, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   identityRow: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 16 },
+  avatarWrap: { width: 56, height: 56 },
   avatar: {
     width: 56,
     height: 56,
@@ -323,8 +556,24 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     backgroundColor: colors.panel,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  avatarEmpty: { borderWidth: 2, borderColor: colors.lime, borderStyle: 'dashed' },
+  avatarImage: { width: 56, height: 56 },
   avatarText: { color: colors.lime, fontSize: 22, fontWeight: '800' },
+  avatarBadge: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.lime,
+    borderWidth: 2,
+    borderColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   identityCol: { flex: 1 },
   signInButton: {
     paddingHorizontal: 16,
@@ -337,6 +586,49 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   signInButtonText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   signInButtonTextFilled: { color: colors.background },
   signOutButtonText: { color: colors.orange },
+  card: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 16,
+  },
+  checkinPromptTitle: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
+  checkinPhotoButton: {
+    marginTop: 12,
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  checkinPhotoButtonText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  checkinPhotoPreview: { width: '100%', height: 160, borderRadius: 12 },
+  checkinSubmitButton: {
+    backgroundColor: colors.lime,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  checkinSubmitButtonText: { color: colors.background, fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
+  checkinHistoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 12,
+    gap: 12,
+  },
+  checkinHistoryThumb: { width: 44, height: 44, borderRadius: 10, backgroundColor: colors.panel },
+  checkinHistoryDate: { color: colors.foreground, fontSize: 13, fontWeight: '700' },
+  checkinHistoryWeight: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  checkinHistoryComment: { color: colors.lime, fontSize: 12, marginTop: 4, lineHeight: 16 },
   deleteAccountLink: { alignSelf: 'center', marginTop: 18 },
   deleteAccountLinkText: { color: colors.muted, fontSize: 12, fontWeight: '600', textDecorationLine: 'underline' },
   name: { color: colors.foreground, fontSize: 24, fontFamily: fonts.display },
@@ -385,6 +677,27 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   paletteLabel: { color: colors.muted, fontSize: 11, fontWeight: '700' },
   paletteLabelActive: { color: colors.foreground },
   allTime: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  periodToggleRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  periodButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  periodButtonActive: { backgroundColor: colors.lime, borderColor: colors.lime },
+  periodButtonText: { color: colors.foreground, fontSize: 12, fontWeight: '700' },
+  periodButtonTextActive: { color: colors.background },
+  chartTitle: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginTop: 16,
+    marginBottom: 8,
+  },
   searchInput: {
     backgroundColor: colors.card,
     borderWidth: 1,

@@ -5,7 +5,10 @@ import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import { Gender, Profile } from '../types';
 
-function syncProfileField(field: 'display_name' | 'gender' | 'height_cm' | 'weight_kg', value: unknown) {
+function syncProfileField(
+  field: 'display_name' | 'gender' | 'height_cm' | 'weight_kg' | 'avatar_url',
+  value: unknown
+) {
   const userId = getCurrentUserId();
   if (!userId) return;
   supabase
@@ -22,6 +25,7 @@ interface ProfileState {
   setHeightCm: (heightCm: number | null) => void;
   setWeightKg: (weightKg: number | null) => void;
   setRoleAndReferralCode: (role: 'student' | 'pt', referralCode: string | null) => void;
+  setAvatarUrl: (avatarUrl: string | null) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -35,6 +39,7 @@ export const useProfileStore = create<ProfileState>()(
         memberSinceYear: new Date().getFullYear(),
         role: 'student',
         referralCode: null,
+        avatarUrl: null,
       },
       setDisplayName: (displayName) => {
         set((state) => ({ profile: { ...state.profile, displayName } }));
@@ -54,6 +59,10 @@ export const useProfileStore = create<ProfileState>()(
       },
       setRoleAndReferralCode: (role, referralCode) =>
         set((state) => ({ profile: { ...state.profile, role, referralCode } })),
+      setAvatarUrl: (avatarUrl) => {
+        set((state) => ({ profile: { ...state.profile, avatarUrl } }));
+        syncProfileField('avatar_url', avatarUrl);
+      },
     }),
     {
       name: 'fitpr-profile',

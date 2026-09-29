@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { generateUuid } from '../lib/id';
 import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import { FoodLogEntry } from '../types';
@@ -26,7 +27,7 @@ export const useFoodLogStore = create<FoodLogState>()(
       addEntry: (entry) => {
         const newEntry: FoodLogEntry = {
           ...entry,
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          id: generateUuid(),
           loggedAt: new Date().toISOString(),
         };
         set({ todaysEntries: [...get().todaysEntries, newEntry] });
@@ -44,6 +45,7 @@ export const useFoodLogStore = create<FoodLogState>()(
             calories: newEntry.calories,
             protein_g: newEntry.proteinG,
             logged_at: newEntry.loggedAt,
+            photo_path: newEntry.photoPath,
           })
           .then(({ error }) => error && console.warn('Supabase food log insert failed', error));
       },
@@ -79,6 +81,7 @@ export const useFoodLogStore = create<FoodLogState>()(
             calories: r.calories,
             proteinG: r.protein_g,
             loggedAt: r.logged_at,
+            photoPath: r.photo_path ?? null,
           })),
         });
       },

@@ -15,7 +15,9 @@ export function StatRow({ stats }: { stats: Stat[] }) {
       {stats.map((stat, i) => (
         <React.Fragment key={stat.label}>
           <View style={styles.column}>
-            <Text style={styles.value}>{stat.value}</Text>
+            <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>
+              {stat.value}
+            </Text>
             <Text style={styles.label}>{stat.label}</Text>
           </View>
           {i < stats.length - 1 && <View style={styles.divider} />}

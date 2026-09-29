@@ -2,6 +2,7 @@ import { Trash2 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Platform,
   Pressable,
@@ -16,6 +17,7 @@ import { AddFoodOverlay } from '../components/AddFoodOverlay';
 import { AppHeader } from '../components/AppHeader';
 import { useT } from '../i18n/useT';
 import { becomePT } from '../lib/coaching';
+import { getSignedImageUrl } from '../lib/media';
 import { useAuthStore } from '../store/authStore';
 import { useCoachStore } from '../store/coachStore';
 import { useFoodLogStore } from '../store/foodLogStore';
@@ -202,6 +204,7 @@ export function NutritionScreen() {
             <View style={{ marginTop: 12, gap: 8 }}>
               {entries.map((entry) => (
                 <View key={entry.id} style={styles.logRow}>
+                  {entry.photoPath && <FoodLogThumb path={entry.photoPath} />}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.logLabel}>{entry.label}</Text>
                     <Text style={styles.logMacros}>
@@ -229,6 +232,25 @@ export function NutritionScreen() {
       )}
     </SafeAreaView>
   );
+}
+
+function FoodLogThumb({ path }: { path: string }) {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSignedImageUrl('food-photos', path).then((signed) => {
+      if (!cancelled) setUrl(signed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  if (!url) return <View style={styles.logThumb} />;
+  return <Image source={{ uri: url }} style={styles.logThumb} />;
 }
 
 function ProgressStat({
@@ -351,6 +373,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   },
   logLabel: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
   logMacros: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  logThumb: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.panel, marginRight: 12 },
   removeButton: { padding: 8 },
   addButton: {
     backgroundColor: colors.lime,

@@ -42,7 +42,14 @@
           "backgroundColor": "#101210"
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FitPR needs access to your photos so you can add a picture to your profile, a meal, or a check-in.",
+          "cameraPermission": "FitPR needs access to your camera so you can take a picture for your profile, a meal, or a check-in."
+        }
+      ]
     ],
     "extra": {
       "eas": {

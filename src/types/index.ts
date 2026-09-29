@@ -122,6 +122,7 @@ export interface Profile {
   memberSinceYear: number;
   role: Role;
   referralCode: string | null;
+  avatarUrl: string | null;
 }
 
 // 0 = Sunday ... 6 = Saturday, matching JS Date#getDay().
@@ -159,4 +160,15 @@ export interface FoodLogEntry {
   calories: number;
   proteinG: number;
   loggedAt: string;
+  photoPath: string | null; // storage path in the private "food-photos" bucket
+}
+
+export interface CheckinSubmission {
+  id: string;
+  studentId: string;
+  photoPath: string; // storage path in the private "checkin-photos" bucket
+  weightKg: number | null;
+  submittedAt: string;
+  ptComment: string | null;
+  ptCommentedAt: string | null;
 }

@@ -59,6 +59,81 @@ export function totalVolumeKg(sets: WorkoutSet[]): number {
     .reduce((sum, s) => sum + s.weightKg * s.reps, 0);
 }
 
+function monthKey(input: string | Date): string {
+  const d = typeof input === 'string' ? new Date(input) : input;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export interface MonthStats {
+  workouts: number;
+  totalKg: number;
+}
+
+export function statsForCurrentMonth(sets: WorkoutSet[]): MonthStats {
+  return { workouts: trainingDayKeys(setsInCurrentMonth(sets)).length, totalKg: totalVolumeKg(setsInCurrentMonth(sets)) };
+}
+
+export function setsInCurrentMonth(sets: WorkoutSet[]): WorkoutSet[] {
+  const thisMonth = monthKey(new Date());
+  return sets.filter((s) => monthKey(s.performedAt) === thisMonth);
+}
+
+// Average volume logged per distinct training day — 0 for bodyweight-only days.
+export function averageSessionVolumeKg(sets: WorkoutSet[]): number {
+  const days = trainingDayKeys(sets).length;
+  if (days === 0) return 0;
+  return Math.round(totalVolumeKg(sets) / days);
+}
+
+export interface MostTrained {
+  exerciseSlug: ExerciseSlug;
+  setCount: number;
+}
+
+export function mostTrainedExercise(sets: WorkoutSet[]): MostTrained | null {
+  if (sets.length === 0) return null;
+  const counts = new Map<ExerciseSlug, number>();
+  for (const s of sets) counts.set(s.exerciseSlug, (counts.get(s.exerciseSlug) ?? 0) + 1);
+  let best: MostTrained | null = null;
+  for (const [exerciseSlug, setCount] of counts) {
+    if (!best || setCount > best.setCount) best = { exerciseSlug, setCount };
+  }
+  return best;
+}
+
+export interface WeekBucket {
+  weekStart: string; // ISO date of the bucket's first day
+  totalKg: number;
+}
+
+// Rolling 7-day buckets ending today, oldest first — a lightweight trend
+// view that doesn't depend on any particular locale's week-start convention.
+export function weeklyVolumeSeries(sets: WorkoutSet[], weeks = 8): WeekBucket[] {
+  const buckets: WeekBucket[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = weeks - 1; i >= 0; i--) {
+    const end = new Date(today);
+    end.setDate(end.getDate() - i * 7);
+    end.setHours(23, 59, 59, 999);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    start.setHours(0, 0, 0, 0);
+
+    const totalKg = sets
+      .filter((s) => getExercise(s.exerciseSlug).metric === 'weight_reps')
+      .filter((s) => {
+        const d = new Date(s.performedAt);
+        return d >= start && d <= end;
+      })
+      .reduce((sum, s) => sum + s.weightKg * s.reps, 0);
+
+    buckets.push({ weekStart: dayKey(start), totalKg });
+  }
+  return buckets;
+}
+
 export function trainingWeekNumber(sets: WorkoutSet[]): number {
   return Math.max(1, Math.ceil(trainingDayKeys(sets).length / 7));
 }

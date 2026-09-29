@@ -1,9 +1,11 @@
-import { ChevronLeft, Minus, Plus, X } from 'lucide-react-native';
+import { Camera, ChevronLeft, Minus, Plus, X } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { computeFoodNutrition, defaultQuantityFor, Food, FOOD_CATEGORY_ORDER, FOODS, quantityStepFor } from '../constants/foods';
 import { useT } from '../i18n/useT';
+import { pickImage, uploadImage } from '../lib/media';
+import { useAuthStore } from '../store/authStore';
 import { Colors, fonts, useColors } from '../theme';
 import { FoodLogEntry } from '../types';
 
@@ -16,12 +18,30 @@ export function AddFoodOverlay({ onClose, onAdd }: Props) {
   const { t, foodName, foodCategoryLabel } = useT();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const session = useAuthStore((s) => s.session);
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [customMode, setCustomMode] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [customName, setCustomName] = useState('');
   const [customCalories, setCustomCalories] = useState('');
   const [customProtein, setCustomProtein] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function handleAddPhoto() {
+    Alert.alert(t('profile.changePhoto'), undefined, [
+      { text: t('profile.takePhoto'), onPress: async () => setPhotoUri(await pickImage('camera')) },
+      { text: t('profile.chooseFromLibrary'), onPress: async () => setPhotoUri(await pickImage('library')) },
+      { text: t('profile.cancel'), style: 'cancel' },
+    ]);
+  }
+
+  async function resolvePhotoPath(): Promise<string | null> {
+    if (!photoUri || !session) return null;
+    const path = `${session.user.id}/${Date.now()}.jpg`;
+    await uploadImage('food-photos', path, photoUri);
+    return path;
+  }
 
   function unitLabel(food: Food): string {
     if (food.unit === 'piece') return t('nutrition.pieces');
@@ -34,8 +54,10 @@ export function AddFoodOverlay({ onClose, onAdd }: Props) {
     setQuantity(defaultQuantityFor(food));
   }
 
-  function handleAddFromFood() {
-    if (!selectedFood) return;
+  async function handleAddFromFood() {
+    if (!selectedFood || saving) return;
+    setSaving(true);
+    const photoPath = await resolvePhotoPath().catch(() => null);
     const { calories, proteinG } = computeFoodNutrition(selectedFood, quantity);
     onAdd({
       foodSlug: selectedFood.slug,
@@ -43,18 +65,22 @@ export function AddFoodOverlay({ onClose, onAdd }: Props) {
       quantity,
       calories,
       proteinG,
+      photoPath,
     });
     onClose();
   }
 
-  function handleAddCustom() {
-    if (!customName.trim()) return;
+  async function handleAddCustom() {
+    if (!customName.trim() || saving) return;
+    setSaving(true);
+    const photoPath = await resolvePhotoPath().catch(() => null);
     onAdd({
       foodSlug: null,
       label: customName.trim(),
       quantity: 1,
       calories: Number(customCalories) || 0,
       proteinG: Number(customProtein) || 0,
+      photoPath,
     });
     onClose();
   }
@@ -134,8 +160,22 @@ export function AddFoodOverlay({ onClose, onAdd }: Props) {
               {computeFoodNutrition(selectedFood, quantity).calories} kcal ·{' '}
               {computeFoodNutrition(selectedFood, quantity).proteinG}g {t('coach.protein').toLowerCase()}
             </Text>
-            <Pressable style={styles.addButton} onPress={handleAddFromFood}>
-              <Text style={styles.addButtonText}>{t('nutrition.add')}</Text>
+            <Pressable style={styles.photoButton} onPress={handleAddPhoto}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoThumb} />
+              ) : (
+                <Camera size={18} color={colors.muted} />
+              )}
+              <Text style={styles.photoButtonText}>
+                {photoUri ? t('profile.changePhoto') : t('nutrition.addPhoto')}
+              </Text>
+            </Pressable>
+            <Pressable style={styles.addButton} onPress={handleAddFromFood} disabled={saving}>
+              {saving ? (
+                <ActivityIndicator color={colors.background} />
+              ) : (
+                <Text style={styles.addButtonText}>{t('nutrition.add')}</Text>
+              )}
             </Pressable>
           </View>
         )}
@@ -175,8 +215,22 @@ export function AddFoodOverlay({ onClose, onAdd }: Props) {
               </View>
             </View>
             <Text style={styles.hint}>{t('nutrition.customFoodHint')}</Text>
-            <Pressable style={styles.addButton} onPress={handleAddCustom}>
-              <Text style={styles.addButtonText}>{t('nutrition.add')}</Text>
+            <Pressable style={styles.photoButton} onPress={handleAddPhoto}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.photoThumb} />
+              ) : (
+                <Camera size={18} color={colors.muted} />
+              )}
+              <Text style={styles.photoButtonText}>
+                {photoUri ? t('profile.changePhoto') : t('nutrition.addPhoto')}
+              </Text>
+            </Pressable>
+            <Pressable style={styles.addButton} onPress={handleAddCustom} disabled={saving}>
+              {saving ? (
+                <ActivityIndicator color={colors.background} />
+              ) : (
+                <Text style={styles.addButtonText}>{t('nutrition.add')}</Text>
+              )}
             </Pressable>
           </View>
         )}
@@ -256,6 +310,20 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   row: { flexDirection: 'row', gap: 12 },
   flex1: { flex: 1 },
   hint: { color: colors.muted, fontSize: 12, marginTop: 10, lineHeight: 17 },
+  photoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingVertical: 12,
+    marginTop: 16,
+  },
+  photoThumb: { width: 22, height: 22, borderRadius: 6 },
+  photoButtonText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
   addButton: {
     backgroundColor: colors.lime,
     borderRadius: 14,

@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,15 +17,20 @@ import { CATEGORY_ORDER, EXERCISES, getExercise } from '../../constants/exercise
 import { useT } from '../../i18n/useT';
 import {
   assignExerciseToStudent,
+  commentOnCheckin,
+  fetchStudentCheckinDay,
+  fetchStudentCheckins,
   fetchStudentNutritionTarget,
   fetchStudentProgram,
   removeStudentExercise,
+  setCheckinDay,
   setStudentNutritionTarget,
   updateStudentExerciseTarget,
 } from '../../lib/coaching';
+import { getSignedImageUrl } from '../../lib/media';
 import { PTDashboardParamList } from '../../navigation/PTDashboardNavigator';
 import { Colors, fonts, useColors } from '../../theme';
-import { CategoryKey, DayOfWeek, NutritionTarget, WeeklyProgram } from '../../types';
+import { CategoryKey, CheckinSubmission, DayOfWeek, NutritionTarget, WeeklyProgram } from '../../types';
 
 const DAYS: DayOfWeek[] = [1, 2, 3, 4, 5, 6, 0];
 
@@ -47,10 +53,35 @@ export function PTStudentEditScreen() {
   const [savedFlash, setSavedFlash] = useState(false);
   const [programError, setProgramError] = useState<string | null>(null);
 
+  const [checkinDay, setCheckinDayState] = useState<DayOfWeek | null>(null);
+  const [checkins, setCheckins] = useState<CheckinSubmission[] | null>(null);
+
   useEffect(() => {
     fetchStudentProgram(studentId).then(setWeek);
     fetchStudentNutritionTarget(studentId).then(setNutrition);
+    fetchStudentCheckinDay(studentId).then(setCheckinDayState);
+    fetchStudentCheckins(studentId).then(setCheckins);
   }, [studentId]);
+
+  async function handleSetCheckinDay(day: DayOfWeek | null) {
+    const previous = checkinDay;
+    setCheckinDayState(day);
+    try {
+      await setCheckinDay(studentId, day);
+    } catch {
+      setCheckinDayState(previous);
+    }
+  }
+
+  async function handleCommentSent(checkinId: string, comment: string) {
+    await commentOnCheckin(checkinId, comment);
+    setCheckins(
+      (prev) =>
+        prev?.map((c) =>
+          c.id === checkinId ? { ...c, ptComment: comment, ptCommentedAt: new Date().toISOString() } : c
+        ) ?? null
+    );
+  }
 
   const dayExercises = week?.[selectedDay] ?? [];
   const assignedSlugs = new Set(dayExercises.map((e) => e.exerciseSlug));
@@ -254,6 +285,44 @@ export function PTStudentEditScreen() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('pt.checkinDay')}</Text>
+          <Text style={styles.hint}>{t('pt.checkinDayHint')}</Text>
+          <View style={[styles.dayRow, { marginTop: 12 }]}>
+            {DAYS.map((day) => {
+              const active = day === checkinDay;
+              return (
+                <Pressable
+                  key={day}
+                  style={[styles.dayPill, active && styles.dayPillActive]}
+                  onPress={() => handleSetCheckinDay(active ? null : day)}
+                >
+                  <Text style={[styles.dayPillText, active && styles.dayPillTextActive]}>
+                    {weekdayShort(day)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('pt.checkins')}</Text>
+          {checkins === null ? (
+            <ActivityIndicator color={colors.lime} style={{ marginTop: 12 }} />
+          ) : checkins.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>{t('pt.noCheckins')}</Text>
+            </View>
+          ) : (
+            <View style={{ gap: 10 }}>
+              {checkins.map((checkin) => (
+                <CheckinCard key={checkin.id} checkin={checkin} onCommentSent={handleCommentSent} />
+              ))}
+            </View>
+          )}
+        </View>
+
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -335,6 +404,77 @@ function TargetStepper({
   );
 }
 
+function CheckinCard({
+  checkin,
+  onCommentSent,
+}: {
+  checkin: CheckinSubmission;
+  onCommentSent: (checkinId: string, comment: string) => Promise<void>;
+}) {
+  const { t } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [comment, setComment] = useState(checkin.ptComment ?? '');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSignedImageUrl('checkin-photos', checkin.photoPath).then((url) => {
+      if (!cancelled) setPhotoUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [checkin.photoPath]);
+
+  async function handleSend() {
+    if (!comment.trim() || sending) return;
+    setSending(true);
+    try {
+      await onCommentSent(checkin.id, comment.trim());
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <View style={styles.checkinCard}>
+      <View style={styles.checkinRow}>
+        {photoUrl ? (
+          <Image source={{ uri: photoUrl }} style={styles.checkinThumb} />
+        ) : (
+          <View style={styles.checkinThumb} />
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.checkinDate}>
+            {new Date(checkin.submittedAt).toLocaleDateString()}
+          </Text>
+          {checkin.weightKg != null && (
+            <Text style={styles.checkinWeight}>{checkin.weightKg} kg</Text>
+          )}
+        </View>
+      </View>
+      <View style={styles.checkinCommentRow}>
+        <TextInput
+          style={[styles.input, styles.flex1]}
+          value={comment}
+          onChangeText={setComment}
+          placeholder={t('pt.checkinCommentPlaceholder')}
+          placeholderTextColor={colors.muted}
+        />
+        <Pressable style={styles.checkinSendButton} onPress={handleSend} disabled={sending}>
+          {sending ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <Text style={styles.saveButtonText}>{t('pt.sendComment')}</Text>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, maxWidth: 720, width: '100%', alignSelf: 'center' },
   header: { paddingHorizontal: 24, paddingTop: 24 },
@@ -366,6 +506,26 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: { color: colors.muted, textAlign: 'center' },
+  hint: { color: colors.muted, fontSize: 12, lineHeight: 17 },
+  checkinCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 14,
+  },
+  checkinRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  checkinThumb: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.panel },
+  checkinDate: { color: colors.foreground, fontSize: 14, fontWeight: '700' },
+  checkinWeight: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  checkinCommentRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  checkinSendButton: {
+    backgroundColor: colors.lime,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   exerciseCard: {
     backgroundColor: colors.card,
     borderWidth: 1,

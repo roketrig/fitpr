@@ -1,6 +1,7 @@
+import { useNavigation } from '@react-navigation/native';
 import { Dumbbell } from 'lucide-react-native';
 import React, { useMemo } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useT } from '../i18n/useT';
 import { useProfileStore } from '../store/profileStore';
 import { useUiModeStore } from '../store/uiModeStore';
@@ -8,9 +9,11 @@ import { Colors, useColors } from '../theme';
 
 export function AppHeader() {
   const { t } = useT();
+  const navigation = useNavigation();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const displayName = useProfileStore((s) => s.profile.displayName);
+  const avatarUrl = useProfileStore((s) => s.profile.avatarUrl);
   const role = useProfileStore((s) => s.profile.role);
   const ptViewingAsStudent = useUiModeStore((s) => s.ptViewingAsStudent);
   const initial = displayName.trim().charAt(0).toUpperCase() || '?';
@@ -36,9 +39,13 @@ export function AppHeader() {
             FIT<Text style={{ color: colors.lime }}>PR</Text>
           </Text>
         </View>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
+        <Pressable style={styles.avatar} onPress={() => navigation.navigate('Profile' as never)}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarText}>{initial}</Text>
+          )}
+        </Pressable>
       </View>
     </View>
   );
@@ -78,6 +85,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  avatarImage: { width: 36, height: 36 },
   avatarText: { color: colors.lime, fontWeight: '700' },
 });

@@ -17,6 +17,7 @@ create table if not exists profiles (
 );
 
 alter table profiles add column if not exists theme_palette text not null default 'lime';
+alter table profiles add column if not exists avatar_url text;
 
 alter table profiles enable row level security;
 
@@ -168,6 +169,11 @@ create table if not exists pt_student_links (
   linked_at timestamptz not null default now()
 );
 
+-- Which weekday (0=Sun..6=Sat, matching program_exercises) the PT wants
+-- this student to submit a check-in (progress photo + weight) on. Null
+-- until the PT sets one.
+alter table pt_student_links add column if not exists checkin_day smallint check (checkin_day between 0 and 6);
+
 create index if not exists pt_student_links_pt_idx on pt_student_links (pt_id);
 
 alter table pt_student_links enable row level security;
@@ -179,6 +185,10 @@ create policy "pt_student_links: select own as student" on pt_student_links
 drop policy if exists "pt_student_links: select own as pt" on pt_student_links;
 create policy "pt_student_links: select own as pt" on pt_student_links
   for select using (auth.uid() = pt_id);
+
+drop policy if exists "pt_student_links: pt set checkin day" on pt_student_links;
+create policy "pt_student_links: pt set checkin day" on pt_student_links
+  for update using (auth.uid() = pt_id) with check (auth.uid() = pt_id);
 
 drop policy if exists "profiles: pt view linked student" on profiles;
 create policy "profiles: pt view linked student" on profiles
@@ -328,6 +338,8 @@ create table if not exists food_log_entries (
   logged_at timestamptz not null default now()
 );
 
+alter table food_log_entries add column if not exists photo_path text;
+
 create index if not exists food_log_entries_user_idx on food_log_entries (user_id, logged_at desc);
 
 alter table food_log_entries enable row level security;
@@ -379,3 +391,154 @@ on conflict (id) do nothing;
 drop policy if exists "exercise-clips: public read" on storage.objects;
 create policy "exercise-clips: public read" on storage.objects
   for select using (bucket_id = 'exercise-clips');
+
+-- ─────────────────────────────────────────────────────────────
+-- avatars: public storage bucket for profile pictures (student or PT —
+-- same profiles table, same bucket). Uploaded from the app itself, so
+-- (unlike exercise-clips) this needs real write policies, not just a
+-- dashboard-only read. Files live at "<user_id>/avatar.jpg" — the first
+-- path segment is what the policies check ownership against. Public read
+-- is fine here: a profile picture is meant to be seen.
+-- ─────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "avatars: public read" on storage.objects;
+create policy "avatars: public read" on storage.objects
+  for select using (bucket_id = 'avatars');
+
+drop policy if exists "avatars: own write" on storage.objects;
+create policy "avatars: own write" on storage.objects
+  for insert with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatars: own update" on storage.objects;
+create policy "avatars: own update" on storage.objects
+  for update using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatars: own delete" on storage.objects;
+create policy "avatars: own delete" on storage.objects
+  for delete using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ─────────────────────────────────────────────────────────────
+-- food-photos: private bucket for meal photos attached to food_log_entries.
+-- Kept private (not public like avatars/exercise-clips) because the food
+-- log itself is private — the Privacy Policy explicitly says a coach
+-- never sees it, so the photos shouldn't be reachable by a bare URL
+-- either. The app resolves a short-lived signed URL to display one.
+-- ─────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public)
+values ('food-photos', 'food-photos', false)
+on conflict (id) do nothing;
+
+drop policy if exists "food-photos: own select" on storage.objects;
+create policy "food-photos: own select" on storage.objects
+  for select using (bucket_id = 'food-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "food-photos: own write" on storage.objects;
+create policy "food-photos: own write" on storage.objects
+  for insert with check (bucket_id = 'food-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "food-photos: own delete" on storage.objects;
+create policy "food-photos: own delete" on storage.objects
+  for delete using (bucket_id = 'food-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ─────────────────────────────────────────────────────────────
+-- checkin-photos: private bucket for the weekly progress-photo check-in.
+-- Unlike food-photos, the linked PT is *meant* to see these (that's the
+-- point of the feature), so there's a second select policy granting that.
+-- ─────────────────────────────────────────────────────────────
+insert into storage.buckets (id, name, public)
+values ('checkin-photos', 'checkin-photos', false)
+on conflict (id) do nothing;
+
+drop policy if exists "checkin-photos: student select own" on storage.objects;
+create policy "checkin-photos: student select own" on storage.objects
+  for select using (bucket_id = 'checkin-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "checkin-photos: pt select linked" on storage.objects;
+create policy "checkin-photos: pt select linked" on storage.objects
+  for select using (
+    bucket_id = 'checkin-photos' and exists (
+      select 1 from pt_student_links
+      where pt_student_links.student_id::text = (storage.foldername(name))[1]
+        and pt_student_links.pt_id = auth.uid()
+    )
+  );
+
+drop policy if exists "checkin-photos: student write own" on storage.objects;
+create policy "checkin-photos: student write own" on storage.objects
+  for insert with check (bucket_id = 'checkin-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "checkin-photos: student delete own" on storage.objects;
+create policy "checkin-photos: student delete own" on storage.objects
+  for delete using (bucket_id = 'checkin-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ─────────────────────────────────────────────────────────────
+-- checkin_photos: one row per weekly check-in submission (progress photo
+-- + weight). The PT can read their linked students' rows and leave a
+-- comment, but only through comment_on_checkin() below — not a direct
+-- update grant — so a PT client can't touch weight_kg/photo_path, only
+-- pt_comment.
+-- ─────────────────────────────────────────────────────────────
+create table if not exists checkin_photos (
+  id uuid primary key default gen_random_uuid(),
+  student_id uuid not null references auth.users (id) on delete cascade,
+  photo_path text not null,
+  weight_kg numeric,
+  submitted_at timestamptz not null default now(),
+  pt_comment text,
+  pt_commented_at timestamptz
+);
+
+create index if not exists checkin_photos_student_idx on checkin_photos (student_id, submitted_at desc);
+
+alter table checkin_photos enable row level security;
+
+drop policy if exists "checkin_photos: student select own" on checkin_photos;
+create policy "checkin_photos: student select own" on checkin_photos
+  for select using (auth.uid() = student_id);
+
+drop policy if exists "checkin_photos: student insert own" on checkin_photos;
+create policy "checkin_photos: student insert own" on checkin_photos
+  for insert with check (auth.uid() = student_id);
+
+drop policy if exists "checkin_photos: student delete own" on checkin_photos;
+create policy "checkin_photos: student delete own" on checkin_photos
+  for delete using (auth.uid() = student_id);
+
+drop policy if exists "checkin_photos: pt select linked" on checkin_photos;
+create policy "checkin_photos: pt select linked" on checkin_photos
+  for select using (
+    exists (
+      select 1 from pt_student_links
+      where pt_student_links.student_id = checkin_photos.student_id
+        and pt_student_links.pt_id = auth.uid()
+    )
+  );
+
+create or replace function public.comment_on_checkin(checkin_id uuid, comment text)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  target_student uuid;
+begin
+  select student_id into target_student from checkin_photos where id = checkin_id;
+  if target_student is null then
+    raise exception 'Check-in not found';
+  end if;
+  if not exists (
+    select 1 from pt_student_links
+    where pt_student_links.student_id = target_student
+      and pt_student_links.pt_id = auth.uid()
+  ) then
+    raise exception 'Not authorized to comment on this check-in';
+  end if;
+
+  update checkin_photos
+  set pt_comment = comment, pt_commented_at = now()
+  where id = checkin_id;
+end;
+$$;
