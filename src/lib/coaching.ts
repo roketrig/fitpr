@@ -7,6 +7,7 @@ import {
   ExerciseSlug,
   NutritionTarget,
   ProgramExercise,
+  PtSubscription,
   StudentSummary,
   WeeklyProgram,
 } from '../types';
@@ -253,4 +254,23 @@ export async function submitCheckin(photoPath: string, weightKg: number | null):
 export async function commentOnCheckin(checkinId: string, comment: string): Promise<void> {
   const { error } = await supabase.rpc('comment_on_checkin', { checkin_id: checkinId, comment });
   if (error) throw error;
+}
+
+export async function fetchMySubscription(): Promise<PtSubscription | null> {
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) return null;
+
+  const { data } = await supabase
+    .from('pt_subscriptions')
+    .select('status, trial_started_at, student_limit, current_period_end')
+    .eq('pt_id', userId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    status: data.status,
+    trialStartedAt: data.trial_started_at,
+    studentLimit: data.student_limit,
+    currentPeriodEnd: data.current_period_end,
+  };
 }

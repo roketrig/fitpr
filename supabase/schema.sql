@@ -260,6 +260,65 @@ create policy "nutrition_targets: pt manage linked student" on nutrition_targets
     )
   );
 
+-- ─────────────────────────────────────────────────────────────
+-- pt_subscriptions: one row per PT tracking trial/paid status. A PT gets
+-- a free trial (up to student_limit students, for 1 month from
+-- trial_started_at) when they become a PT; after that they need an active
+-- store subscription to accept more students.
+--
+-- Rows are never written directly by a client — become_pt() creates the
+-- initial trial row, and only the verify-purchase edge function (using the
+-- service role key, which bypasses RLS) ever sets status to 'active' after
+-- confirming a real purchase with Google/Apple. There is deliberately no
+-- insert/update RLS policy for authenticated users.
+-- ─────────────────────────────────────────────────────────────
+create table if not exists pt_subscriptions (
+  pt_id uuid primary key references auth.users (id) on delete cascade,
+  status text not null default 'trial' check (status in ('trial', 'active', 'expired', 'canceled')),
+  trial_started_at timestamptz not null default now(),
+  student_limit int not null default 5,
+  platform text check (platform in ('android', 'ios')),
+  store_product_id text,
+  store_transaction_id text unique,
+  current_period_end timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table pt_subscriptions enable row level security;
+
+drop policy if exists "pt_subscriptions: select own" on pt_subscriptions;
+create policy "pt_subscriptions: select own" on pt_subscriptions
+  for select using (auth.uid() = pt_id);
+
+-- True while target_pt_id can take on one more student: either an active
+-- paid subscription, or still within the free trial's time and headcount.
+create or replace function public.can_pt_accept_student(target_pt_id uuid)
+returns boolean
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  sub record;
+  current_students int;
+begin
+  select * into sub from pt_subscriptions where pt_id = target_pt_id;
+  if sub is null then
+    return false;
+  end if;
+
+  if sub.status = 'active' and (sub.current_period_end is null or sub.current_period_end > now()) then
+    return true;
+  end if;
+
+  if sub.status = 'trial' and sub.trial_started_at > now() - interval '1 month' then
+    select count(*) into current_students from pt_student_links where pt_id = target_pt_id;
+    return current_students < sub.student_limit;
+  end if;
+
+  return false;
+end;
+$$;
+
 -- Flips the caller to a PT and mints them a referral code (idempotent —
 -- calling it again just returns the existing code).
 create or replace function public.become_pt()
@@ -272,6 +331,8 @@ declare
   new_code text;
   attempt int := 0;
 begin
+  insert into pt_subscriptions (pt_id) values (auth.uid()) on conflict (pt_id) do nothing;
+
   select referral_code into existing_code from profiles where id = auth.uid();
   if existing_code is not null then
     update profiles set role = 'pt' where id = auth.uid();
@@ -294,7 +355,10 @@ end;
 $$;
 
 -- Redeems a coach's referral code for the calling (student) user.
--- Re-running it with a new code moves the student to that coach.
+-- Re-running it with a new code moves the student to that coach. Blocked
+-- when the coach can't take a new student (trial limit hit, no active
+-- subscription) — unless the student is already linked to that same coach,
+-- in which case it's just a harmless re-confirmation.
 create or replace function public.link_to_pt(code text)
 returns uuid
 language plpgsql
@@ -302,6 +366,7 @@ security definer set search_path = public
 as $$
 declare
   found_pt_id uuid;
+  already_linked boolean;
 begin
   select id into found_pt_id from profiles where referral_code = upper(code) and role = 'pt';
   if found_pt_id is null then
@@ -309,6 +374,14 @@ begin
   end if;
   if found_pt_id = auth.uid() then
     raise exception 'You cannot link to yourself';
+  end if;
+
+  select exists(
+    select 1 from pt_student_links where student_id = auth.uid() and pt_id = found_pt_id
+  ) into already_linked;
+
+  if not already_linked and not can_pt_accept_student(found_pt_id) then
+    raise exception 'This coach is not accepting new students right now';
   end if;
 
   insert into pt_student_links (student_id, pt_id)

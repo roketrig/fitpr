@@ -163,6 +163,15 @@ export interface FoodLogEntry {
   photoPath: string | null; // storage path in the private "food-photos" bucket
 }
 
+export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'canceled';
+
+export interface PtSubscription {
+  status: SubscriptionStatus;
+  trialStartedAt: string;
+  studentLimit: number;
+  currentPeriodEnd: string | null;
+}
+
 export interface CheckinSubmission {
   id: string;
   studentId: string;

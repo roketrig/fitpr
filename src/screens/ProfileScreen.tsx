@@ -1,10 +1,11 @@
 import { Camera } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { AuthOverlay } from '../components/AuthOverlay';
 import { DeleteAccountOverlay } from '../components/DeleteAccountOverlay';
+import { PTSubscriptionCard } from '../components/PTSubscriptionCard';
 import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
 import { WeeklyVolumeChart } from '../components/WeeklyVolumeChart';
@@ -238,6 +239,15 @@ export function ProfileScreen() {
             onClose={() => setDeleteOpen(false)}
             onDeleted={() => setDeleteOpen(false)}
           />
+        )}
+
+        {session && profile.role === 'pt' && Platform.OS !== 'web' && (
+          <View style={styles.section}>
+            <Text style={styles.eyebrow}>{t('subscription.title')}</Text>
+            <View style={{ marginTop: 12 }}>
+              <PTSubscriptionCard />
+            </View>
+          </View>
         )}
 
         {session && checkinDay !== null && (
