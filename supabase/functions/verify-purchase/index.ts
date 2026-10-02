@@ -40,9 +40,22 @@ interface VerifyResult {
   transactionId: string;
 }
 
+// Secret inputs mangle multi-line values in different ways (newlines turned
+// into spaces, literal "\n" text, wrapping quotes), so rebuild a clean PEM
+// from just the base64 body instead of trusting the stored formatting.
+function normalizePem(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const body = raw
+    .replace(/-----(BEGIN|END) [A-Z ]+-----/g, '')
+    .replace(/\\\\n|\\n|\\r/g, '')
+    .replace(/[\s"']/g, '');
+  if (!body) return null;
+  return `-----BEGIN PRIVATE KEY-----\n${body.match(/.{1,64}/g)!.join('\n')}\n-----END PRIVATE KEY-----\n`;
+}
+
 async function getGoogleAccessToken(): Promise<string> {
-  const clientEmail = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL');
-  const privateKeyPem = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY')?.replace(/\\n/g, '\n');
+  const clientEmail = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL')?.trim();
+  const privateKeyPem = normalizePem(Deno.env.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY'));
   if (!clientEmail || !privateKeyPem) throw new Error('Google service account secrets are not configured');
 
   const privateKey = await jose.importPKCS8(privateKeyPem, 'RS256');
