@@ -1,4 +1,5 @@
 import { getExercise } from '../constants/exercises';
+import { getCurrentUserId } from './session';
 import { supabase } from './supabase';
 import {
   CheckinSubmission,
@@ -6,6 +7,7 @@ import {
   DayOfWeek,
   ExerciseSlug,
   FoodLogEntry,
+  FoodReviewStatus,
   NutritionTarget,
   ProgramExercise,
   PtSubscription,
@@ -48,16 +50,17 @@ export async function linkToPT(code: string): Promise<string> {
   return data as string;
 }
 
+// Throws on a failed query so callers can tell "no coach" from "couldn't reach the server".
 export async function fetchMyCoach(): Promise<CoachLink | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
+  const userId = getCurrentUserId();
   if (!userId) return null;
 
-  const { data: link } = await supabase
+  const { data: link, error } = await supabase
     .from('pt_student_links')
     .select('pt_id')
     .eq('student_id', userId)
     .maybeSingle();
+  if (error) throw error;
   if (!link) return null;
 
   const { data: pt } = await supabase
@@ -70,15 +73,15 @@ export async function fetchMyCoach(): Promise<CoachLink | null> {
 }
 
 export async function fetchMyNutritionTarget(): Promise<NutritionTarget | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
+  const userId = getCurrentUserId();
   if (!userId) return null;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('nutrition_targets')
     .select('calories, protein_g')
     .eq('student_id', userId)
     .maybeSingle();
+  if (error) throw error;
   if (!data) return null;
   return { calories: data.calories, proteinG: data.protein_g };
 }
@@ -320,7 +323,22 @@ export async function fetchStudentFoodLog(studentId: string, days = 7): Promise<
     proteinG: r.protein_g,
     loggedAt: r.logged_at,
     photoPath: r.photo_path ?? null,
+    ptStatus: r.pt_status ?? null,
+    ptComment: r.pt_comment ?? null,
   }));
+}
+
+export async function reviewFoodEntry(
+  entryId: string,
+  status: FoodReviewStatus,
+  comment: string
+): Promise<void> {
+  const { error } = await supabase.rpc('review_food_entry', {
+    entry_id: entryId,
+    new_status: status,
+    new_comment: comment.trim() || null,
+  });
+  if (error) throw error;
 }
 
 export async function fetchMySubscription(): Promise<PtSubscription | null> {

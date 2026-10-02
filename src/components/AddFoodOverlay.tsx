@@ -7,11 +7,11 @@ import { useT } from '../i18n/useT';
 import { pickImage, uploadImage } from '../lib/media';
 import { useAuthStore } from '../store/authStore';
 import { Colors, fonts, useColors } from '../theme';
-import { FoodLogEntry } from '../types';
+import { NewFoodLogEntry } from '../types';
 
 interface Props {
   onClose: () => void;
-  onAdd: (entry: Omit<FoodLogEntry, 'id' | 'loggedAt'>) => void;
+  onAdd: (entry: NewFoodLogEntry) => void;
 }
 
 export function AddFoodOverlay({ onClose, onAdd }: Props) {

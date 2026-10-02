@@ -171,7 +171,15 @@ export interface FoodLogEntry {
   proteinG: number;
   loggedAt: string;
   photoPath: string | null; // storage path in the private "food-photos" bucket
+  ptStatus: FoodReviewStatus | null; // coach's verdict on this entry
+  ptComment: string | null;
 }
+
+export type FoodReviewStatus = 'approved' | 'revise';
+
+// What the UI supplies when logging food — the review fields are written
+// only by the coach, never by the student.
+export type NewFoodLogEntry = Omit<FoodLogEntry, 'id' | 'loggedAt' | 'ptStatus' | 'ptComment'>;
 
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'canceled';
 

@@ -21,6 +21,13 @@ const THRESHOLDS: Record<ExerciseSlug, Record<Gender, number[]>> = {
   t_bar_row: { male: [40, 60, 80, 100, 120], female: [20, 30, 40, 50, 65] },
   inverted_row: { male: [5, 10, 15, 20, 30], female: [3, 8, 12, 16, 22] },
   pull_up: { male: [1, 5, 10, 15, 20], female: [1, 3, 5, 8, 12] },
+  chin_up: { male: [1, 5, 10, 15, 20], female: [1, 3, 5, 8, 12] },
+  pullover: { male: [15, 22, 30, 38, 46], female: [8, 12, 16, 20, 26] },
+  cable_pullover: { male: [25, 35, 45, 55, 70], female: [12, 18, 25, 32, 40] },
+  chest_supported_row: { male: [20, 28, 36, 44, 52], female: [10, 14, 18, 24, 30] },
+  close_neutral_grip_pulldown: { male: [40, 55, 70, 85, 100], female: [20, 30, 40, 50, 60] },
+  reverse_grip_pulldown: { male: [40, 55, 70, 85, 100], female: [20, 30, 40, 50, 60] },
+  wide_neutral_grip_pulldown: { male: [40, 55, 70, 85, 100], female: [20, 30, 40, 50, 60] },
   // legs
   squat: { male: [80, 100, 120, 140, 160], female: [40, 60, 80, 100, 120] },
   front_squat: { male: [60, 80, 100, 120, 140], female: [30, 45, 60, 75, 95] },
@@ -61,6 +68,10 @@ const THRESHOLDS: Record<ExerciseSlug, Record<Gender, number[]>> = {
   mountain_climber: { male: [20, 40, 60, 90, 140], female: [15, 30, 45, 65, 100] },
   jumping_jack: { male: [20, 40, 60, 100, 150], female: [15, 30, 50, 80, 120] },
   kettlebell_swing: { male: [16, 20, 24, 32, 40], female: [8, 12, 16, 20, 24] },
+  // wrist
+  wrist_curl: { male: [10, 20, 30, 40, 50], female: [5, 10, 15, 20, 30] },
+  reverse_wrist_curl: { male: [5, 10, 20, 30, 40], female: [3, 6, 10, 15, 20] },
+  wrist_roller: { male: [3, 6, 10, 15, 25], female: [2, 4, 7, 10, 16] },
 };
 
 export const ACHIEVEMENTS: Achievement[] = Object.entries(THRESHOLDS).flatMap(

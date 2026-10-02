@@ -6,10 +6,11 @@ import {
   fetchStudentFoodLog,
   fetchStudentNutritionTarget,
   fetchStudentProfile,
+  reviewFoodEntry,
   setStudentNutritionTarget,
 } from '../../lib/coaching';
 import { Colors, useColors } from '../../theme';
-import { FoodLogEntry, NutritionTarget } from '../../types';
+import { FoodLogEntry, FoodReviewStatus, NutritionTarget } from '../../types';
 
 function dayKeyOf(iso: string): string {
   const d = new Date(iso);
@@ -42,6 +43,16 @@ export function StudentNutritionTab({ studentId }: { studentId: string }) {
     } catch {
       setSaveError(true);
     }
+  }
+
+  async function handleReview(entryId: string, status: FoodReviewStatus, comment: string) {
+    await reviewFoodEntry(entryId, status, comment);
+    setEntries(
+      (prev) =>
+        prev?.map((e) =>
+          e.id === entryId ? { ...e, ptStatus: status, ptComment: comment.trim() || null } : e
+        ) ?? null
+    );
   }
 
   const days = useMemo(() => {
@@ -127,21 +138,7 @@ export function StudentNutritionTab({ studentId }: { studentId: string }) {
                     </Text>
                   </View>
                   {dayEntries.map((e) => (
-                    <View key={e.id} style={styles.entryRow}>
-                      {e.photoPath && <FoodPhotoThumb path={e.photoPath} size={44} />}
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.entryLabel}>{e.label}</Text>
-                        <Text style={styles.entryMacros}>
-                          {e.calories} kcal · {e.proteinG}g {t('coach.protein').toLowerCase()}
-                        </Text>
-                      </View>
-                      <Text style={styles.entryTime}>
-                        {new Date(e.loggedAt).toLocaleTimeString(dateLocale(), {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </Text>
-                    </View>
+                    <EntryRow key={e.id} entry={e} onReview={handleReview} />
                   ))}
                 </View>
               );
@@ -149,6 +146,89 @@ export function StudentNutritionTab({ studentId }: { studentId: string }) {
           </View>
         )}
       </View>
+    </View>
+  );
+}
+
+function EntryRow({
+  entry,
+  onReview,
+}: {
+  entry: FoodLogEntry;
+  onReview: (entryId: string, status: FoodReviewStatus, comment: string) => Promise<void>;
+}) {
+  const { t, dateLocale } = useT();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const [comment, setComment] = useState(entry.ptComment ?? '');
+  const [pending, setPending] = useState<FoodReviewStatus | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  async function submit(status: FoodReviewStatus) {
+    if (pending) return;
+    setPending(status);
+    setFailed(false);
+    try {
+      await onReview(entry.id, status, comment);
+    } catch (e) {
+      console.warn('Food review failed', e);
+      setFailed(true);
+    } finally {
+      setPending(null);
+    }
+  }
+
+  return (
+    <View style={styles.entryBlock}>
+      <View style={styles.entryRow}>
+        {entry.photoPath && <FoodPhotoThumb path={entry.photoPath} size={56} />}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.entryLabel}>{entry.label}</Text>
+          <Text style={styles.entryMacros}>
+            {entry.calories} kcal · {entry.proteinG}g {t('coach.protein').toLowerCase()}
+          </Text>
+          {entry.ptStatus && (
+            <Text style={entry.ptStatus === 'approved' ? styles.statusApproved : styles.statusRevise}>
+              {entry.ptStatus === 'approved' ? t('pt.foodApproved') : t('pt.foodRevise')}
+            </Text>
+          )}
+        </View>
+        <Text style={styles.entryTime}>
+          {new Date(entry.loggedAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+      <View style={styles.reviewRow}>
+        <TextInput
+          style={[styles.input, styles.flex1, styles.reviewInput]}
+          value={comment}
+          onChangeText={setComment}
+          placeholder={t('pt.foodCommentPlaceholder')}
+          placeholderTextColor={colors.muted}
+        />
+        <Pressable
+          style={[styles.approveButton, pending !== null && styles.reviewDisabled]}
+          onPress={() => submit('approved')}
+          disabled={pending !== null}
+        >
+          {pending === 'approved' ? (
+            <ActivityIndicator color={colors.background} />
+          ) : (
+            <Text style={styles.approveText}>{t('pt.foodApprove')}</Text>
+          )}
+        </Pressable>
+        <Pressable
+          style={[styles.reviseButton, pending !== null && styles.reviewDisabled]}
+          onPress={() => submit('revise')}
+          disabled={pending !== null}
+        >
+          {pending === 'revise' ? (
+            <ActivityIndicator color={colors.orange} />
+          ) : (
+            <Text style={styles.reviseText}>{t('pt.foodReviseAction')}</Text>
+          )}
+        </Pressable>
+      </View>
+      {failed && <Text style={styles.reviewError}>{t('pt.foodReviewError')}</Text>}
     </View>
   );
 }
@@ -190,14 +270,39 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   dayHeader: { marginBottom: 8 },
   dayTitle: { color: colors.foreground, fontSize: 14, fontWeight: '800', textTransform: 'capitalize' },
   dayTotals: { color: colors.lime, fontSize: 12, fontWeight: '700', marginTop: 3 },
-  entryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
+  entryBlock: {
+    paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
+  entryRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  statusApproved: { color: colors.lime, fontSize: 12, fontWeight: '800', marginTop: 4 },
+  statusRevise: { color: colors.orange, fontSize: 12, fontWeight: '800', marginTop: 4 },
+  reviewRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  reviewInput: { paddingVertical: 10, fontSize: 13 },
+  approveButton: {
+    backgroundColor: colors.lime,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  approveText: { color: colors.background, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  reviseButton: {
+    borderWidth: 1,
+    borderColor: colors.orange,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  reviseText: { color: colors.orange, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  reviewDisabled: { opacity: 0.6 },
+  reviewError: { color: colors.orange, fontSize: 12, fontWeight: '600', marginTop: 8 },
   entryLabel: { color: colors.foreground, fontSize: 14, fontWeight: '700' },
   entryMacros: { color: colors.muted, fontSize: 12, marginTop: 2 },
   entryTime: { color: colors.muted, fontSize: 11, fontWeight: '700' },

@@ -4,7 +4,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { generateUuid } from '../lib/id';
 import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
-import { FoodLogEntry } from '../types';
+import { FoodLogEntry, NewFoodLogEntry } from '../types';
+
+// A refresh that lands right after a local add/remove could briefly erase it
+// before its network write finishes, so refreshes skip that short window.
+let lastLocalEditAt = 0;
+const LOCAL_EDIT_GRACE_MS = 8000;
 
 function startOfTodayIso(): string {
   const d = new Date();
@@ -14,7 +19,7 @@ function startOfTodayIso(): string {
 
 interface FoodLogState {
   todaysEntries: FoodLogEntry[];
-  addEntry: (entry: Omit<FoodLogEntry, 'id' | 'loggedAt'>) => void;
+  addEntry: (entry: NewFoodLogEntry) => void;
   removeEntry: (id: string) => void;
   refreshToday: () => Promise<void>;
 }
@@ -29,7 +34,10 @@ export const useFoodLogStore = create<FoodLogState>()(
           ...entry,
           id: generateUuid(),
           loggedAt: new Date().toISOString(),
+          ptStatus: null,
+          ptComment: null,
         };
+        lastLocalEditAt = Date.now();
         set({ todaysEntries: [...get().todaysEntries, newEntry] });
 
         const userId = getCurrentUserId();
@@ -51,6 +59,7 @@ export const useFoodLogStore = create<FoodLogState>()(
       },
 
       removeEntry: (id) => {
+        lastLocalEditAt = Date.now();
         set({ todaysEntries: get().todaysEntries.filter((e) => e.id !== id) });
 
         const userId = getCurrentUserId();
@@ -65,6 +74,7 @@ export const useFoodLogStore = create<FoodLogState>()(
       refreshToday: async () => {
         const userId = getCurrentUserId();
         if (!userId) return;
+        if (Date.now() - lastLocalEditAt < LOCAL_EDIT_GRACE_MS) return;
         const { data, error } = await supabase
           .from('food_log_entries')
           .select('*')
@@ -82,6 +92,8 @@ export const useFoodLogStore = create<FoodLogState>()(
             proteinG: r.protein_g,
             loggedAt: r.logged_at,
             photoPath: r.photo_path ?? null,
+            ptStatus: r.pt_status ?? null,
+            ptComment: r.pt_comment ?? null,
           })),
         });
       },

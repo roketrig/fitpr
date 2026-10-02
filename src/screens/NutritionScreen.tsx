@@ -1,5 +1,6 @@
-import { Trash2 } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { Check, Trash2, TriangleAlert } from 'lucide-react-native';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -51,13 +52,17 @@ export function NutritionScreen() {
   const [becomingPt, setBecomingPt] = useState(false);
   const [addFoodOpen, setAddFoodOpen] = useState(false);
 
-  useEffect(() => {
-    if (session) {
-      refreshCoach();
-      refreshToday();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user.id]);
+  // Re-pull on every visit to this tab so a coach's target change or
+  // comment on an entry shows up without restarting the app.
+  useFocusEffect(
+    useCallback(() => {
+      if (session) {
+        refreshCoach();
+        refreshToday();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session?.user.id])
+  );
 
   const totals = useMemo(
     () =>
@@ -227,6 +232,21 @@ export function NutritionScreen() {
                     <Text style={styles.logMacros}>
                       {entry.calories} kcal · {entry.proteinG}g {t('coach.protein').toLowerCase()}
                     </Text>
+                    {entry.ptStatus && (
+                      <View style={styles.reviewRow}>
+                        {entry.ptStatus === 'approved' ? (
+                          <Check size={13} color={colors.lime} strokeWidth={3} />
+                        ) : (
+                          <TriangleAlert size={13} color={colors.orange} strokeWidth={2.5} />
+                        )}
+                        <Text
+                          style={entry.ptStatus === 'approved' ? styles.reviewApproved : styles.reviewRevise}
+                        >
+                          {entry.ptStatus === 'approved' ? t('nutrition.coachApproved') : t('nutrition.coachRevise')}
+                        </Text>
+                      </View>
+                    )}
+                    {entry.ptComment && <Text style={styles.reviewComment}>{entry.ptComment}</Text>}
                   </View>
                   <Pressable onPress={() => removeEntry(entry.id)} style={styles.removeButton}>
                     <Trash2 size={16} color={colors.orange} />
@@ -383,6 +403,10 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   logLabel: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
   logMacros: { color: colors.muted, fontSize: 12, marginTop: 2 },
   logThumbWrap: { marginRight: 12 },
+  reviewRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  reviewApproved: { color: colors.lime, fontSize: 12, fontWeight: '800' },
+  reviewRevise: { color: colors.orange, fontSize: 12, fontWeight: '800' },
+  reviewComment: { color: colors.foreground, fontSize: 13, marginTop: 4, lineHeight: 18 },
   removeButton: { padding: 8 },
   addButton: {
     backgroundColor: colors.lime,

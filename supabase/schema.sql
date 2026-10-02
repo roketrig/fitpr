@@ -665,3 +665,61 @@ create policy "food-photos: pt select shared" on storage.objects
     bucket_id = 'food-photos'
     and public.pt_can_view_food_log(((storage.foldername(name))[1])::uuid)
   );
+
+-- ─────────────────────────────────────────────────────────────
+-- Coach feedback on food log entries.
+--
+-- A coach who is allowed to see a student's food log (the student's
+-- share_food_log switch is on) can approve an entry or ask for a change,
+-- with an optional comment. Written only through review_food_entry(); the
+-- student has no update policy on this table, and the insert trigger wipes
+-- any review fields a client tries to set on a brand-new row.
+-- ─────────────────────────────────────────────────────────────
+alter table food_log_entries add column if not exists pt_status text check (pt_status in ('approved', 'revise'));
+alter table food_log_entries add column if not exists pt_comment text;
+alter table food_log_entries add column if not exists pt_reviewed_at timestamptz;
+
+create or replace function public.clear_food_review_on_insert()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.pt_status := null;
+  new.pt_comment := null;
+  new.pt_reviewed_at := null;
+  return new;
+end;
+$$;
+
+drop trigger if exists food_log_entries_clear_review on food_log_entries;
+create trigger food_log_entries_clear_review
+  before insert on food_log_entries
+  for each row execute function public.clear_food_review_on_insert();
+
+create or replace function public.review_food_entry(entry_id uuid, new_status text, new_comment text)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  target_student uuid;
+begin
+  if new_status not in ('approved', 'revise') then
+    raise exception 'Invalid review status';
+  end if;
+
+  select user_id into target_student from food_log_entries where id = entry_id;
+  if target_student is null then
+    raise exception 'Food entry not found';
+  end if;
+  if not public.pt_can_view_food_log(target_student) then
+    raise exception 'Not authorized to review this food entry';
+  end if;
+
+  update food_log_entries
+  set pt_status = new_status,
+      pt_comment = nullif(trim(coalesce(new_comment, '')), ''),
+      pt_reviewed_at = now()
+  where id = entry_id;
+end;
+$$;

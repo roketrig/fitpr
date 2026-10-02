@@ -22,11 +22,17 @@ export const useCoachStore = create<CoachState>()(
       linkError: null,
 
       refresh: async () => {
-        const [coach, nutritionTarget] = await Promise.all([
-          fetchMyCoach(),
-          fetchMyNutritionTarget(),
-        ]);
-        set({ coach, nutritionTarget });
+        // A failed fetch (e.g. offline) keeps what we already have instead of
+        // looking like the coach unlinked.
+        try {
+          const [coach, nutritionTarget] = await Promise.all([
+            fetchMyCoach(),
+            fetchMyNutritionTarget(),
+          ]);
+          set({ coach, nutritionTarget });
+        } catch (e) {
+          console.warn('Coach refresh failed', e);
+        }
       },
 
       linkToCoach: async (code) => {

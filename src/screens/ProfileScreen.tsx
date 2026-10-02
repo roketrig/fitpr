@@ -1,5 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { Camera } from 'lucide-react-native';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
@@ -93,12 +94,16 @@ export function ProfileScreen() {
   const [checkinWeight, setCheckinWeight] = useState('');
   const [checkinSubmitting, setCheckinSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!session) return;
-    fetchMyCheckinDay().then(setCheckinDayState);
-    fetchMyCheckins().then(setCheckins);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user.id]);
+  // Re-fetch on every visit so a newly set check-in day or a coach's comment
+  // appears without restarting the app.
+  useFocusEffect(
+    useCallback(() => {
+      if (!session) return;
+      fetchMyCheckinDay().then(setCheckinDayState);
+      fetchMyCheckins().then(setCheckins);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session?.user.id])
+  );
 
   const latestCheckin = checkins[0] ?? null;
   const daysSinceLastCheckin = latestCheckin

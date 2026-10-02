@@ -5,6 +5,10 @@ import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import { DayOfWeek, ExerciseSlug, ProgramExercise, WeeklyProgram } from '../types';
 
+// See foodLogStore: skip a cloud refresh that could race a just-made local edit.
+let lastLocalEditAt = 0;
+const LOCAL_EDIT_GRACE_MS = 8000;
+
 const DEFAULT_TARGET_SETS = 3;
 const DEFAULT_TARGET_REPS = 12;
 
@@ -106,6 +110,7 @@ export const useProgramStore = create<ProgramState>()(
       addExerciseToDay: (day, exerciseSlug) => {
         const current = get().week[day] ?? [];
         if (current.some((e) => e.exerciseSlug === exerciseSlug)) return;
+        lastLocalEditAt = Date.now();
         const entry: ProgramExercise = {
           exerciseSlug,
           targetSets: DEFAULT_TARGET_SETS,
@@ -118,6 +123,7 @@ export const useProgramStore = create<ProgramState>()(
       },
 
       removeExerciseFromDay: (day, exerciseSlug) => {
+        lastLocalEditAt = Date.now();
         set((state) => ({
           week: {
             ...state.week,
@@ -128,6 +134,7 @@ export const useProgramStore = create<ProgramState>()(
       },
 
       updateExerciseTarget: (day, exerciseSlug, patch) => {
+        lastLocalEditAt = Date.now();
         let updated: ProgramExercise | undefined;
         let position = 0;
         set((state) => {
@@ -150,6 +157,7 @@ export const useProgramStore = create<ProgramState>()(
       // cache), the program also needs to be pulled fresh whenever the
       // student opens the screens that show it.
       refreshFromRemote: async (userId) => {
+        if (Date.now() - lastLocalEditAt < LOCAL_EDIT_GRACE_MS) return;
         const { data, error } = await supabase
           .from('program_exercises')
           .select('day_of_week, exercise_slug, target_sets, target_reps')
@@ -172,6 +180,7 @@ export const useProgramStore = create<ProgramState>()(
 
       moveDay: (from, to) => {
         if (from === to) return;
+        lastLocalEditAt = Date.now();
         const entries = get().week[from] ?? [];
         set((state) => ({
           week: { ...state.week, [to]: entries, [from]: [] },
