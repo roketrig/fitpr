@@ -179,7 +179,7 @@ function resetLocalDataForSignOut() {
   }));
   useSettingsStore.setState({ language: 'en' });
   useThemeStore.setState({ paletteId: 'lime' });
-  useCoachStore.setState({ coach: null, nutritionTarget: null });
+  useCoachStore.setState({ coach: null, nutritionTarget: null, checkinDay: null });
   useFoodLogStore.setState({ todaysEntries: [] });
 }
 

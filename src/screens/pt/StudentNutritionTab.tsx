@@ -9,6 +9,7 @@ import {
   reviewFoodEntry,
   setStudentNutritionTarget,
 } from '../../lib/coaching';
+import { notifyOther } from '../../lib/notifications';
 import { Colors, useColors } from '../../theme';
 import { FoodLogEntry, FoodReviewStatus, NutritionTarget } from '../../types';
 
@@ -38,6 +39,7 @@ export function StudentNutritionTab({ studentId }: { studentId: string }) {
     setSaveError(false);
     try {
       await setStudentNutritionTarget(studentId, target);
+      notifyOther('target_updated', studentId);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
     } catch {
@@ -47,6 +49,7 @@ export function StudentNutritionTab({ studentId }: { studentId: string }) {
 
   async function handleReview(entryId: string, status: FoodReviewStatus, comment: string) {
     await reviewFoodEntry(entryId, status, comment);
+    notifyOther('food_review', studentId);
     setEntries(
       (prev) =>
         prev?.map((e) =>

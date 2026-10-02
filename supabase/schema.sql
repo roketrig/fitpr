@@ -723,3 +723,45 @@ begin
   where id = entry_id;
 end;
 $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- Push notification tokens (Expo push). One row per device token; a token
+-- belongs to whoever is signed in on that device right now. No RLS
+-- policies on purpose: clients only touch this table through the two
+-- functions below, and the send-push edge function reads it with the
+-- service role.
+-- ─────────────────────────────────────────────────────────────
+create table if not exists push_tokens (
+  token text primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  platform text,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists push_tokens_user_idx on push_tokens (user_id);
+
+alter table push_tokens enable row level security;
+
+create or replace function public.register_push_token(new_token text, new_platform text)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in';
+  end if;
+  insert into push_tokens (token, user_id, platform)
+  values (new_token, auth.uid(), new_platform)
+  on conflict (token) do update
+    set user_id = auth.uid(), platform = excluded.platform, updated_at = now();
+end;
+$$;
+
+create or replace function public.unregister_push_token(old_token text)
+returns void
+language sql
+security definer set search_path = public
+as $$
+  delete from push_tokens where token = old_token and user_id = auth.uid();
+$$;

@@ -50,7 +50,14 @@
           "cameraPermission": "FitPR needs access to your camera so you can take a picture for your profile, a meal, or a check-in."
         }
       ],
-      "expo-iap"
+      "expo-iap",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#c9f533"
+        }
+      ]
     ],
     "extra": {
       "eas": {

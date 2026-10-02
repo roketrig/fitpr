@@ -1,12 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { fetchMyCoach, fetchMyNutritionTarget, linkToPT } from '../lib/coaching';
-import { CoachLink, NutritionTarget } from '../types';
+import { fetchMyCheckinDay, fetchMyCoach, fetchMyNutritionTarget, linkToPT } from '../lib/coaching';
+import { CoachLink, DayOfWeek, NutritionTarget } from '../types';
 
 interface CoachState {
   coach: CoachLink | null;
   nutritionTarget: NutritionTarget | null;
+  checkinDay: DayOfWeek | null;
   linking: boolean;
   linkError: string | null;
   refresh: () => Promise<void>;
@@ -18,6 +19,7 @@ export const useCoachStore = create<CoachState>()(
     (set) => ({
       coach: null,
       nutritionTarget: null,
+      checkinDay: null,
       linking: false,
       linkError: null,
 
@@ -25,11 +27,12 @@ export const useCoachStore = create<CoachState>()(
         // A failed fetch (e.g. offline) keeps what we already have instead of
         // looking like the coach unlinked.
         try {
-          const [coach, nutritionTarget] = await Promise.all([
+          const [coach, nutritionTarget, checkinDay] = await Promise.all([
             fetchMyCoach(),
             fetchMyNutritionTarget(),
+            fetchMyCheckinDay(),
           ]);
-          set({ coach, nutritionTarget });
+          set({ coach, nutritionTarget, checkinDay });
         } catch (e) {
           console.warn('Coach refresh failed', e);
         }
@@ -51,7 +54,11 @@ export const useCoachStore = create<CoachState>()(
     {
       name: 'fitpr-coach',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ coach: state.coach, nutritionTarget: state.nutritionTarget }),
+      partialize: (state) => ({
+        coach: state.coach,
+        nutritionTarget: state.nutritionTarget,
+        checkinDay: state.checkinDay,
+      }),
     }
   )
 );

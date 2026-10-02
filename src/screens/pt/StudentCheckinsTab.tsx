@@ -8,6 +8,7 @@ import {
   setCheckinDay,
 } from '../../lib/coaching';
 import { getSignedImageUrl } from '../../lib/media';
+import { notifyOther } from '../../lib/notifications';
 import { Colors, useColors } from '../../theme';
 import { CheckinSubmission, DayOfWeek } from '../../types';
 
@@ -41,6 +42,7 @@ export function StudentCheckinsTab({ studentId }: { studentId: string }) {
 
   async function handleComment(checkinId: string, comment: string) {
     await commentOnCheckin(checkinId, comment);
+    notifyOther('checkin_comment', studentId);
     setCheckins(
       (prev) =>
         prev?.map((c) =>

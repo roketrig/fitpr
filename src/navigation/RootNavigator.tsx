@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '../i18n/useT';
 import { useCloudRefresh } from '../lib/useCloudRefresh';
+import { useNotifications } from '../lib/useNotifications';
 import { AchievementsScreen } from '../screens/AchievementsScreen';
 import { NutritionScreen } from '../screens/NutritionScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -80,6 +81,7 @@ function StudentTabs() {
 
 export function RootNavigator() {
   useCloudRefresh();
+  useNotifications();
   const role = useProfileStore((s) => s.profile.role);
   const ptViewingAsStudent = useUiModeStore((s) => s.ptViewingAsStudent);
   const colors = useColors();

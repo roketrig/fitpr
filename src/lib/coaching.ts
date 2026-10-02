@@ -223,11 +223,17 @@ export async function fetchStudentCheckinDay(studentId: string): Promise<DayOfWe
   return (data?.checkin_day ?? null) as DayOfWeek | null;
 }
 
+// Throws on a failed query so a flaky connection isn't mistaken for "no check-in day".
 export async function fetchMyCheckinDay(): Promise<DayOfWeek | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
+  const userId = getCurrentUserId();
   if (!userId) return null;
-  return fetchStudentCheckinDay(userId);
+  const { data, error } = await supabase
+    .from('pt_student_links')
+    .select('checkin_day')
+    .eq('student_id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.checkin_day ?? null) as DayOfWeek | null;
 }
 
 export async function fetchStudentCheckins(studentId: string): Promise<CheckinSubmission[]> {

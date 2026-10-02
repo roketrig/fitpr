@@ -12,6 +12,12 @@ interface SettingsState {
   setLanguage: (language: Language) => void;
   workoutViewMode: WorkoutViewMode;
   setWorkoutViewMode: (mode: WorkoutViewMode) => void;
+  notifyWorkout: boolean;
+  setNotifyWorkout: (enabled: boolean) => void;
+  workoutReminderHour: number;
+  setWorkoutReminderHour: (hour: number) => void;
+  notifyCheckin: boolean;
+  setNotifyCheckin: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -33,6 +39,13 @@ export const useSettingsStore = create<SettingsState>()(
       // not identity data tied to the user.
       workoutViewMode: 'carousel',
       setWorkoutViewMode: (workoutViewMode) => set({ workoutViewMode }),
+      // Reminder preferences are per-device, like the view mode above.
+      notifyWorkout: false,
+      setNotifyWorkout: (notifyWorkout) => set({ notifyWorkout }),
+      workoutReminderHour: 18,
+      setWorkoutReminderHour: (workoutReminderHour) => set({ workoutReminderHour }),
+      notifyCheckin: true,
+      setNotifyCheckin: (notifyCheckin) => set({ notifyCheckin }),
     }),
     {
       name: 'fitpr-settings',

@@ -1,7 +1,19 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Camera } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { AuthOverlay } from '../components/AuthOverlay';
@@ -14,6 +26,7 @@ import { CATEGORY_ORDER, EXERCISES } from '../constants/exercises';
 import { useT } from '../i18n/useT';
 import { fetchMyCheckinDay, fetchMyCheckins, submitCheckin } from '../lib/coaching';
 import { getPublicImageUrl, getSignedImageUrl, pickImage, uploadImage } from '../lib/media';
+import { notifyOther, requestNotificationPermission, unregisterPushToken } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { unitKeyFor } from '../lib/metric';
 import {
@@ -30,6 +43,7 @@ import {
 import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useCoachStore } from '../store/coachStore';
 import { useThemeStore } from '../store/themeStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { Colors, PALETTES, fonts, useColors } from '../theme';
@@ -53,6 +67,25 @@ export function ProfileScreen() {
   const setWorkoutViewMode = useSettingsStore((s) => s.setWorkoutViewMode);
   const paletteId = useThemeStore((s) => s.paletteId);
   const setPaletteId = useThemeStore((s) => s.setPaletteId);
+  const notifyWorkout = useSettingsStore((s) => s.notifyWorkout);
+  const setNotifyWorkout = useSettingsStore((s) => s.setNotifyWorkout);
+  const workoutReminderHour = useSettingsStore((s) => s.workoutReminderHour);
+  const setWorkoutReminderHour = useSettingsStore((s) => s.setWorkoutReminderHour);
+  const notifyCheckin = useSettingsStore((s) => s.notifyCheckin);
+  const setNotifyCheckin = useSettingsStore((s) => s.setNotifyCheckin);
+  const storedCheckinDay = useCoachStore((s) => s.checkinDay);
+
+  // Turning a reminder on is when we ask for permission; if it's refused the
+  // switch stays off and we point at the phone's settings.
+  async function toggleReminder(enable: boolean, apply: (v: boolean) => void) {
+    if (!enable) return apply(false);
+    const granted = await requestNotificationPermission();
+    if (!granted) {
+      Alert.alert(t('profile.notifDenied'));
+      return;
+    }
+    apply(true);
+  }
 
   const sets = useWorkoutStore((s) => s.sets);
   const personalBestFor = useWorkoutStore((s) => s.personalBestFor);
@@ -99,7 +132,7 @@ export function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!session) return;
-      fetchMyCheckinDay().then(setCheckinDayState);
+      fetchMyCheckinDay().then(setCheckinDayState).catch(() => {});
       fetchMyCheckins().then(setCheckins);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [session?.user.id])
@@ -130,6 +163,7 @@ export function ProfileScreen() {
       setCheckinPhotoUri(null);
       setCheckinWeight('');
       setCheckins(await fetchMyCheckins());
+      notifyOther('checkin_submitted');
     } catch (e) {
       console.warn('Check-in submit failed', e);
       Alert.alert(t('profile.photoUploadError'));
@@ -217,7 +251,11 @@ export function ProfileScreen() {
               </Text>
             </View>
             <Pressable
-              onPress={() => (session ? supabase.auth.signOut() : setAuthOpen(true))}
+              onPress={async () => {
+                if (!session) return setAuthOpen(true);
+                await unregisterPushToken();
+                supabase.auth.signOut();
+              }}
               style={[styles.signInButton, session ? styles.signOutButton : styles.signInButtonFilled]}
             >
               <Text
@@ -425,6 +463,59 @@ export function ProfileScreen() {
               );
             })}
           </View>
+
+          {Platform.OS !== 'web' && (
+            <>
+              <Text style={styles.label}>{t('profile.notifications')}</Text>
+              <View style={styles.notifCard}>
+                <View style={styles.notifRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.notifTitle}>{t('profile.notifWorkout')}</Text>
+                    <Text style={styles.notifHint}>{t('profile.notifWorkoutHint')}</Text>
+                  </View>
+                  <Switch
+                    value={notifyWorkout}
+                    onValueChange={(v) => toggleReminder(v, setNotifyWorkout)}
+                    trackColor={{ false: colors.border, true: colors.lime }}
+                    thumbColor={colors.foreground}
+                  />
+                </View>
+                {notifyWorkout && (
+                  <View style={styles.hourRow}>
+                    {[7, 12, 18, 20].map((h) => (
+                      <Pressable
+                        key={h}
+                        style={[styles.hourChip, workoutReminderHour === h && styles.hourChipActive]}
+                        onPress={() => setWorkoutReminderHour(h)}
+                      >
+                        <Text
+                          style={[styles.hourChipText, workoutReminderHour === h && styles.hourChipTextActive]}
+                        >
+                          {String(h).padStart(2, '0')}:00
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+                {storedCheckinDay !== null && (
+                  <View style={[styles.notifRow, styles.notifRowDivider]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.notifTitle}>{t('profile.notifCheckin')}</Text>
+                      <Text style={styles.notifHint}>
+                        {t('profile.notifCheckinHint', { day: weekdayFull(storedCheckinDay) })}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={notifyCheckin}
+                      onValueChange={(v) => toggleReminder(v, setNotifyCheckin)}
+                      trackColor={{ false: colors.border, true: colors.lime }}
+                      thumbColor={colors.foreground}
+                    />
+                  </View>
+                )}
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -611,6 +702,30 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
+  notifCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+  },
+  notifRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  notifRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  notifTitle: { color: colors.foreground, fontSize: 14, fontWeight: '700' },
+  notifHint: { color: colors.muted, fontSize: 12, marginTop: 3, lineHeight: 16 },
+  hourRow: { flexDirection: 'row', gap: 8, paddingBottom: 14 },
+  hourChip: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  hourChipActive: { backgroundColor: colors.lime, borderColor: colors.lime },
+  hourChipText: { color: colors.foreground, fontSize: 12, fontWeight: '700' },
+  hourChipTextActive: { color: colors.background },
   checkinDayLabel: { color: colors.foreground, fontSize: 15, fontWeight: '800', marginTop: 6 },
   checkinPromptTitle: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
   checkinPhotoButton: {
