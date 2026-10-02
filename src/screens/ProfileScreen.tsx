@@ -35,7 +35,7 @@ import { Colors, PALETTES, fonts, useColors } from '../theme';
 import { CategoryKey, CheckinSubmission, DayOfWeek, Language } from '../types';
 
 export function ProfileScreen() {
-  const { t, exerciseName, categoryLabel, unitLabel } = useT();
+  const { t, exerciseName, categoryLabel, unitLabel, weekdayFull } = useT();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const profile = useProfileStore((s) => s.profile);
@@ -253,6 +253,9 @@ export function ProfileScreen() {
         {session && checkinDay !== null && (
           <View style={styles.section}>
             <Text style={styles.eyebrow}>{t('profile.checkin')}</Text>
+            <Text style={styles.checkinDayLabel}>
+              {t('profile.checkinDayLabel', { day: weekdayFull(checkinDay) })}
+            </Text>
             {showCheckinPrompt && (
               <View style={[styles.card, { marginTop: 12 }]}>
                 <Text style={styles.checkinPromptTitle}>{t('profile.checkinDueToday')}</Text>
@@ -603,6 +606,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     borderRadius: 16,
     padding: 16,
   },
+  checkinDayLabel: { color: colors.foreground, fontSize: 15, fontWeight: '800', marginTop: 6 },
   checkinPromptTitle: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
   checkinPhotoButton: {
     marginTop: 12,

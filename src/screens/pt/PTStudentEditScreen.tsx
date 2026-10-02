@@ -1,38 +1,32 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, Minus, Plus, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CATEGORY_ORDER, EXERCISES, getExercise } from '../../constants/exercises';
 import { useT } from '../../i18n/useT';
 import {
   assignExerciseToStudent,
-  commentOnCheckin,
-  fetchStudentCheckinDay,
-  fetchStudentCheckins,
-  fetchStudentNutritionTarget,
   fetchStudentProgram,
   removeStudentExercise,
-  setCheckinDay,
-  setStudentNutritionTarget,
   updateStudentExerciseTarget,
 } from '../../lib/coaching';
-import { getSignedImageUrl } from '../../lib/media';
 import { PTDashboardParamList } from '../../navigation/PTDashboardNavigator';
 import { Colors, fonts, useColors } from '../../theme';
-import { CategoryKey, CheckinSubmission, DayOfWeek, NutritionTarget, WeeklyProgram } from '../../types';
+import { CategoryKey, DayOfWeek, WeeklyProgram } from '../../types';
+import { StudentCheckinsTab } from './StudentCheckinsTab';
+import { StudentNutritionTab } from './StudentNutritionTab';
+import { StudentOverviewTab } from './StudentOverviewTab';
 
 const DAYS: DayOfWeek[] = [1, 2, 3, 4, 5, 6, 0];
+
+const TABS = [
+  { key: 'overview', labelKey: 'pt.tabOverview' },
+  { key: 'program', labelKey: 'pt.tabProgram' },
+  { key: 'nutrition', labelKey: 'pt.tabNutrition' },
+  { key: 'checkins', labelKey: 'pt.tabCheckins' },
+] as const;
+type Tab = (typeof TABS)[number]['key'];
 
 type Route = RouteProp<PTDashboardParamList, 'PTStudentEdit'>;
 
@@ -48,40 +42,12 @@ export function PTStudentEditScreen() {
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(todayIndex);
   const [week, setWeek] = useState<WeeklyProgram | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-
-  const [nutrition, setNutrition] = useState<NutritionTarget>({ calories: null, proteinG: null });
-  const [savedFlash, setSavedFlash] = useState(false);
+  const [tab, setTab] = useState<Tab>('overview');
   const [programError, setProgramError] = useState<string | null>(null);
-
-  const [checkinDay, setCheckinDayState] = useState<DayOfWeek | null>(null);
-  const [checkins, setCheckins] = useState<CheckinSubmission[] | null>(null);
 
   useEffect(() => {
     fetchStudentProgram(studentId).then(setWeek);
-    fetchStudentNutritionTarget(studentId).then(setNutrition);
-    fetchStudentCheckinDay(studentId).then(setCheckinDayState);
-    fetchStudentCheckins(studentId).then(setCheckins);
   }, [studentId]);
-
-  async function handleSetCheckinDay(day: DayOfWeek | null) {
-    const previous = checkinDay;
-    setCheckinDayState(day);
-    try {
-      await setCheckinDay(studentId, day);
-    } catch {
-      setCheckinDayState(previous);
-    }
-  }
-
-  async function handleCommentSent(checkinId: string, comment: string) {
-    await commentOnCheckin(checkinId, comment);
-    setCheckins(
-      (prev) =>
-        prev?.map((c) =>
-          c.id === checkinId ? { ...c, ptComment: comment, ptCommentedAt: new Date().toISOString() } : c
-        ) ?? null
-    );
-  }
 
   const dayExercises = week?.[selectedDay] ?? [];
   const assignedSlugs = new Set(dayExercises.map((e) => e.exerciseSlug));
@@ -140,12 +106,6 @@ export function PTStudentEditScreen() {
     }
   }
 
-  async function handleSaveNutrition() {
-    await setStudentNutritionTarget(studentId, nutrition);
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 1500);
-  }
-
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -157,171 +117,126 @@ export function PTStudentEditScreen() {
           <Text style={styles.title}>{studentName}</Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('pt.program')}</Text>
-          <View style={styles.dayRow}>
-            {DAYS.map((day) => {
-              const active = day === selectedDay;
-              return (
-                <Pressable
-                  key={day}
-                  style={[styles.dayPill, active && styles.dayPillActive]}
-                  onPress={() => setSelectedDay(day)}
-                >
-                  <Text style={[styles.dayPillText, active && styles.dayPillTextActive]}>
-                    {weekdayShort(day)}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        <View style={styles.tabBar}>
+          {TABS.map(({ key, labelKey }) => (
+            <Pressable
+              key={key}
+              style={[styles.tab, tab === key && styles.tabActive]}
+              onPress={() => setTab(key)}
+            >
+              <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{t(labelKey)}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {tab === 'overview' && (
+          <View style={styles.section}>
+            <StudentOverviewTab studentId={studentId} studentName={studentName} />
           </View>
-          <Text style={styles.selectedDayLabel}>{weekdayFull(selectedDay)}</Text>
+        )}
+        {tab === 'nutrition' && (
+          <View style={styles.section}>
+            <StudentNutritionTab studentId={studentId} />
+          </View>
+        )}
+        {tab === 'checkins' && (
+          <View style={styles.section}>
+            <StudentCheckinsTab studentId={studentId} />
+          </View>
+        )}
 
-          {week === null ? (
-            <ActivityIndicator color={colors.lime} style={{ marginTop: 20 }} />
-          ) : dayExercises.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>{t('program.emptyDay')}</Text>
-            </View>
-          ) : (
-            <View style={{ gap: 10 }}>
-              {dayExercises.map((entry) => {
-                const ex = getExercise(entry.exerciseSlug);
+        {tab === 'program' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('pt.program')}</Text>
+            <View style={styles.dayRow}>
+              {DAYS.map((day) => {
+                const active = day === selectedDay;
                 return (
-                  <View key={entry.exerciseSlug} style={styles.exerciseCard}>
-                    <View style={styles.exerciseCardHeader}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.exerciseCardTitle}>{exerciseName(entry.exerciseSlug)}</Text>
-                        <Text style={styles.exerciseCardCategory}>{categoryLabel(ex.category)}</Text>
-                      </View>
-                      <Pressable
-                        onPress={() => handleRemove(entry.exerciseSlug)}
-                        style={styles.removeButton}
-                      >
-                        <Trash2 size={16} color={colors.orange} />
-                      </Pressable>
-                    </View>
-
-                    <View style={styles.targetRow}>
-                      <TargetStepper
-                        label={t('program.setsLabel')}
-                        value={entry.targetSets}
-                        onDecrement={() =>
-                          handleTargetChange(entry.exerciseSlug, {
-                            targetSets: Math.max(1, entry.targetSets - 1),
-                          })
-                        }
-                        onIncrement={() =>
-                          handleTargetChange(entry.exerciseSlug, { targetSets: entry.targetSets + 1 })
-                        }
-                      />
-                      <TargetStepper
-                        label={
-                          ex.metric === 'time_seconds' ? t('program.secondsLabel') : t('program.repsLabel')
-                        }
-                        value={entry.targetReps}
-                        onDecrement={() =>
-                          handleTargetChange(entry.exerciseSlug, {
-                            targetReps: Math.max(
-                              1,
-                              entry.targetReps - (ex.metric === 'time_seconds' ? 5 : 1)
-                            ),
-                          })
-                        }
-                        onIncrement={() =>
-                          handleTargetChange(entry.exerciseSlug, {
-                            targetReps: entry.targetReps + (ex.metric === 'time_seconds' ? 5 : 1),
-                          })
-                        }
-                      />
-                    </View>
-                  </View>
+                  <Pressable
+                    key={day}
+                    style={[styles.dayPill, active && styles.dayPillActive]}
+                    onPress={() => setSelectedDay(day)}
+                  >
+                    <Text style={[styles.dayPillText, active && styles.dayPillTextActive]}>
+                      {weekdayShort(day)}
+                    </Text>
+                  </Pressable>
                 );
               })}
             </View>
-          )}
+            <Text style={styles.selectedDayLabel}>{weekdayFull(selectedDay)}</Text>
 
-          <Pressable style={styles.addButton} onPress={() => setPickerOpen(true)}>
-            <Plus size={18} color={colors.background} strokeWidth={3} />
-            <Text style={styles.addButtonText}>{t('program.addExercise')}</Text>
-          </Pressable>
-          {programError && <Text style={styles.errorText}>{programError}</Text>}
-        </View>
+            {week === null ? (
+              <ActivityIndicator color={colors.lime} style={{ marginTop: 20 }} />
+            ) : dayExercises.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>{t('program.emptyDay')}</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                {dayExercises.map((entry) => {
+                  const ex = getExercise(entry.exerciseSlug);
+                  return (
+                    <View key={entry.exerciseSlug} style={styles.exerciseCard}>
+                      <View style={styles.exerciseCardHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.exerciseCardTitle}>{exerciseName(entry.exerciseSlug)}</Text>
+                          <Text style={styles.exerciseCardCategory}>{categoryLabel(ex.category)}</Text>
+                        </View>
+                        <Pressable
+                          onPress={() => handleRemove(entry.exerciseSlug)}
+                          style={styles.removeButton}
+                        >
+                          <Trash2 size={16} color={colors.orange} />
+                        </Pressable>
+                      </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('pt.nutrition')}</Text>
-          <View style={styles.nutritionCard}>
-            <View style={styles.row}>
-              <View style={styles.flex1}>
-                <Text style={styles.label}>{t('coach.calories')}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={nutrition.calories?.toString() ?? ''}
-                  onChangeText={(v) =>
-                    setNutrition((n) => ({ ...n, calories: v ? Number(v) : null }))
-                  }
-                  keyboardType="numeric"
-                  placeholder="2200"
-                  placeholderTextColor={colors.muted}
-                />
+                      <View style={styles.targetRow}>
+                        <TargetStepper
+                          label={t('program.setsLabel')}
+                          value={entry.targetSets}
+                          onDecrement={() =>
+                            handleTargetChange(entry.exerciseSlug, {
+                              targetSets: Math.max(1, entry.targetSets - 1),
+                            })
+                          }
+                          onIncrement={() =>
+                            handleTargetChange(entry.exerciseSlug, { targetSets: entry.targetSets + 1 })
+                          }
+                        />
+                        <TargetStepper
+                          label={
+                            ex.metric === 'time_seconds' ? t('program.secondsLabel') : t('program.repsLabel')
+                          }
+                          value={entry.targetReps}
+                          onDecrement={() =>
+                            handleTargetChange(entry.exerciseSlug, {
+                              targetReps: Math.max(
+                                1,
+                                entry.targetReps - (ex.metric === 'time_seconds' ? 5 : 1)
+                              ),
+                            })
+                          }
+                          onIncrement={() =>
+                            handleTargetChange(entry.exerciseSlug, {
+                              targetReps: entry.targetReps + (ex.metric === 'time_seconds' ? 5 : 1),
+                            })
+                          }
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
-              <View style={styles.flex1}>
-                <Text style={styles.label}>{t('coach.protein')}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={nutrition.proteinG?.toString() ?? ''}
-                  onChangeText={(v) =>
-                    setNutrition((n) => ({ ...n, proteinG: v ? Number(v) : null }))
-                  }
-                  keyboardType="numeric"
-                  placeholder="160"
-                  placeholderTextColor={colors.muted}
-                />
-              </View>
-            </View>
-            <Pressable style={styles.saveButton} onPress={handleSaveNutrition}>
-              <Text style={styles.saveButtonText}>{savedFlash ? t('pt.saved') : t('pt.save')}</Text>
+            )}
+
+            <Pressable style={styles.addButton} onPress={() => setPickerOpen(true)}>
+              <Plus size={18} color={colors.background} strokeWidth={3} />
+              <Text style={styles.addButtonText}>{t('program.addExercise')}</Text>
             </Pressable>
+            {programError && <Text style={styles.errorText}>{programError}</Text>}
           </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('pt.checkinDay')}</Text>
-          <Text style={styles.hint}>{t('pt.checkinDayHint')}</Text>
-          <View style={[styles.dayRow, { marginTop: 12 }]}>
-            {DAYS.map((day) => {
-              const active = day === checkinDay;
-              return (
-                <Pressable
-                  key={day}
-                  style={[styles.dayPill, active && styles.dayPillActive]}
-                  onPress={() => handleSetCheckinDay(active ? null : day)}
-                >
-                  <Text style={[styles.dayPillText, active && styles.dayPillTextActive]}>
-                    {weekdayShort(day)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('pt.checkins')}</Text>
-          {checkins === null ? (
-            <ActivityIndicator color={colors.lime} style={{ marginTop: 12 }} />
-          ) : checkins.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>{t('pt.noCheckins')}</Text>
-            </View>
-          ) : (
-            <View style={{ gap: 10 }}>
-              {checkins.map((checkin) => (
-                <CheckinCard key={checkin.id} checkin={checkin} onCommentSent={handleCommentSent} />
-              ))}
-            </View>
-          )}
-        </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -404,80 +319,27 @@ function TargetStepper({
   );
 }
 
-function CheckinCard({
-  checkin,
-  onCommentSent,
-}: {
-  checkin: CheckinSubmission;
-  onCommentSent: (checkinId: string, comment: string) => Promise<void>;
-}) {
-  const { t } = useT();
-  const colors = useColors();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [comment, setComment] = useState(checkin.ptComment ?? '');
-  const [sending, setSending] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getSignedImageUrl('checkin-photos', checkin.photoPath).then((url) => {
-      if (!cancelled) setPhotoUrl(url);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [checkin.photoPath]);
-
-  async function handleSend() {
-    if (!comment.trim() || sending) return;
-    setSending(true);
-    try {
-      await onCommentSent(checkin.id, comment.trim());
-    } finally {
-      setSending(false);
-    }
-  }
-
-  return (
-    <View style={styles.checkinCard}>
-      <View style={styles.checkinRow}>
-        {photoUrl ? (
-          <Image source={{ uri: photoUrl }} style={styles.checkinThumb} />
-        ) : (
-          <View style={styles.checkinThumb} />
-        )}
-        <View style={{ flex: 1 }}>
-          <Text style={styles.checkinDate}>
-            {new Date(checkin.submittedAt).toLocaleDateString()}
-          </Text>
-          {checkin.weightKg != null && (
-            <Text style={styles.checkinWeight}>{checkin.weightKg} kg</Text>
-          )}
-        </View>
-      </View>
-      <View style={styles.checkinCommentRow}>
-        <TextInput
-          style={[styles.input, styles.flex1]}
-          value={comment}
-          onChangeText={setComment}
-          placeholder={t('pt.checkinCommentPlaceholder')}
-          placeholderTextColor={colors.muted}
-        />
-        <Pressable style={styles.checkinSendButton} onPress={handleSend} disabled={sending}>
-          {sending ? (
-            <ActivityIndicator color={colors.background} />
-          ) : (
-            <Text style={styles.saveButtonText}>{t('pt.sendComment')}</Text>
-          )}
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
 const makeStyles = (colors: Colors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, maxWidth: 720, width: '100%', alignSelf: 'center' },
   header: { paddingHorizontal: 24, paddingTop: 24 },
+  tabBar: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 24,
+    marginTop: 18,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  tabActive: { backgroundColor: colors.lime, borderColor: colors.lime },
+  tabText: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  tabTextActive: { color: colors.background },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   backButtonText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   title: { color: colors.foreground, fontSize: 32, fontFamily: fonts.display, marginTop: 8 },

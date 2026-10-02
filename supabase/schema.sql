@@ -615,3 +615,53 @@ begin
   where id = checkin_id;
 end;
 $$;
+
+-- ─────────────────────────────────────────────────────────────
+-- What a coach can see about a linked student.
+--
+-- Workout sets: always visible to the linked coach — reviewing training
+-- progress is the point of being coached.
+--
+-- Food log (+ meal photos): visible ONLY while the student has switched on
+-- profiles.share_food_log (off by default, student-controlled). The
+-- helper below is security definer so the policy can read the consent flag
+-- without tripping over profiles' own RLS.
+-- ─────────────────────────────────────────────────────────────
+alter table profiles add column if not exists share_food_log boolean not null default false;
+
+drop policy if exists "workout_sets: pt select linked student" on workout_sets;
+create policy "workout_sets: pt select linked student" on workout_sets
+  for select using (
+    exists (
+      select 1 from pt_student_links
+      where pt_student_links.student_id = workout_sets.user_id
+        and pt_student_links.pt_id = auth.uid()
+    )
+  );
+
+create or replace function public.pt_can_view_food_log(target_student uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = public
+as $$
+  select exists (
+    select 1
+    from pt_student_links l
+    join profiles p on p.id = l.student_id
+    where l.student_id = target_student
+      and l.pt_id = auth.uid()
+      and p.share_food_log
+  );
+$$;
+
+drop policy if exists "food_log_entries: pt select shared" on food_log_entries;
+create policy "food_log_entries: pt select shared" on food_log_entries
+  for select using (public.pt_can_view_food_log(user_id));
+
+drop policy if exists "food-photos: pt select shared" on storage.objects;
+create policy "food-photos: pt select shared" on storage.objects
+  for select using (
+    bucket_id = 'food-photos'
+    and public.pt_can_view_food_log(((storage.foldername(name))[1])::uuid)
+  );

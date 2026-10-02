@@ -35,6 +35,7 @@ async function pushLocalDataToCloud(userId: string) {
       height_cm: profile.heightCm,
       weight_kg: profile.weightKg,
       avatar_url: profile.avatarUrl,
+      share_food_log: !!profile.shareFoodLog,
       language,
       theme_palette: paletteId,
     })
@@ -101,6 +102,7 @@ async function pullCloudDataToLocal(userId: string) {
         role: (row.role as Role) ?? 'student',
         referralCode: row.referral_code ?? null,
         avatarUrl: row.avatar_url ?? null,
+        shareFoodLog: row.share_food_log ?? false,
       },
     }));
     if (row.language) useSettingsStore.setState({ language: row.language as Language });
@@ -172,6 +174,7 @@ function resetLocalDataForSignOut() {
       role: 'student',
       referralCode: null,
       avatarUrl: null,
+      shareFoodLog: false,
     },
   }));
   useSettingsStore.setState({ language: 'en' });

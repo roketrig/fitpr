@@ -2,12 +2,12 @@ import { Trash2 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -15,9 +15,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddFoodOverlay } from '../components/AddFoodOverlay';
 import { AppHeader } from '../components/AppHeader';
+import { FoodPhotoThumb } from '../components/FoodPhotoThumb';
 import { useT } from '../i18n/useT';
 import { becomePT } from '../lib/coaching';
-import { getSignedImageUrl } from '../lib/media';
 import { useAuthStore } from '../store/authStore';
 import { useCoachStore } from '../store/coachStore';
 import { useFoodLogStore } from '../store/foodLogStore';
@@ -33,6 +33,7 @@ export function NutritionScreen() {
   const session = useAuthStore((s) => s.session);
   const profile = useProfileStore((s) => s.profile);
   const setRoleAndReferralCode = useProfileStore((s) => s.setRoleAndReferralCode);
+  const setShareFoodLog = useProfileStore((s) => s.setShareFoodLog);
 
   const coach = useCoachStore((s) => s.coach);
   const nutritionTarget = useCoachStore((s) => s.nutritionTarget);
@@ -118,6 +119,18 @@ export function NutritionScreen() {
             <View style={[styles.card, { marginTop: 12 }]}>
               <Text style={styles.label}>{t('coach.linked')}</Text>
               <Text style={styles.coachName}>{coach.displayName}</Text>
+              <View style={styles.shareRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.shareTitle}>{t('nutrition.shareWithCoach')}</Text>
+                  <Text style={styles.shareHint}>{t('nutrition.shareWithCoachHint')}</Text>
+                </View>
+                <Switch
+                  value={!!profile.shareFoodLog}
+                  onValueChange={setShareFoodLog}
+                  trackColor={{ false: colors.border, true: colors.lime }}
+                  thumbColor={colors.foreground}
+                />
+              </View>
             </View>
           ) : (
             <View style={[styles.card, { marginTop: 12 }]}>
@@ -204,7 +217,11 @@ export function NutritionScreen() {
             <View style={{ marginTop: 12, gap: 8 }}>
               {entries.map((entry) => (
                 <View key={entry.id} style={styles.logRow}>
-                  {entry.photoPath && <FoodLogThumb path={entry.photoPath} />}
+                  {entry.photoPath && (
+                    <View style={styles.logThumbWrap}>
+                      <FoodPhotoThumb path={entry.photoPath} />
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.logLabel}>{entry.label}</Text>
                     <Text style={styles.logMacros}>
@@ -232,25 +249,6 @@ export function NutritionScreen() {
       )}
     </SafeAreaView>
   );
-}
-
-function FoodLogThumb({ path }: { path: string }) {
-  const colors = useColors();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getSignedImageUrl('food-photos', path).then((signed) => {
-      if (!cancelled) setUrl(signed);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [path]);
-
-  if (!url) return <View style={styles.logThumb} />;
-  return <Image source={{ uri: url }} style={styles.logThumb} />;
 }
 
 function ProgressStat({
@@ -297,6 +295,17 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   label: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
   referralCode: { color: colors.lime, fontSize: 32, fontFamily: fonts.display, letterSpacing: 4, marginTop: 4 },
   coachName: { color: colors.foreground, fontSize: 18, fontWeight: '700', marginTop: 4 },
+  shareRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  shareTitle: { color: colors.foreground, fontSize: 14, fontWeight: '700' },
+  shareHint: { color: colors.muted, fontSize: 12, marginTop: 3, lineHeight: 16 },
   hint: { color: colors.muted, fontSize: 12, marginTop: 10, lineHeight: 17 },
   webHintRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   webLink: {
@@ -373,7 +382,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   },
   logLabel: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
   logMacros: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  logThumb: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.panel, marginRight: 12 },
+  logThumbWrap: { marginRight: 12 },
   removeButton: { padding: 8 },
   addButton: {
     backgroundColor: colors.lime,

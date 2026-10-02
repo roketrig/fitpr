@@ -123,6 +123,16 @@ export interface Profile {
   role: Role;
   referralCode: string | null;
   avatarUrl: string | null;
+  shareFoodLog: boolean;
+}
+
+export interface StudentProfileInfo {
+  displayName: string;
+  gender: Gender | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  avatarUrl: string | null;
+  shareFoodLog: boolean;
 }
 
 // 0 = Sunday ... 6 = Saturday, matching JS Date#getDay().

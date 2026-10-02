@@ -18,6 +18,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Google service account keys — never commit these
+google-service-account*.json
+*-service-account.json
+
 # Metro
 .metro-health-check*
 

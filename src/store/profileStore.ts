@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { Gender, Profile } from '../types';
 
 function syncProfileField(
-  field: 'display_name' | 'gender' | 'height_cm' | 'weight_kg' | 'avatar_url',
+  field: 'display_name' | 'gender' | 'height_cm' | 'weight_kg' | 'avatar_url' | 'share_food_log',
   value: unknown
 ) {
   const userId = getCurrentUserId();
@@ -26,6 +26,7 @@ interface ProfileState {
   setWeightKg: (weightKg: number | null) => void;
   setRoleAndReferralCode: (role: 'student' | 'pt', referralCode: string | null) => void;
   setAvatarUrl: (avatarUrl: string | null) => void;
+  setShareFoodLog: (share: boolean) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -40,6 +41,7 @@ export const useProfileStore = create<ProfileState>()(
         role: 'student',
         referralCode: null,
         avatarUrl: null,
+        shareFoodLog: false,
       },
       setDisplayName: (displayName) => {
         set((state) => ({ profile: { ...state.profile, displayName } }));
@@ -62,6 +64,10 @@ export const useProfileStore = create<ProfileState>()(
       setAvatarUrl: (avatarUrl) => {
         set((state) => ({ profile: { ...state.profile, avatarUrl } }));
         syncProfileField('avatar_url', avatarUrl);
+      },
+      setShareFoodLog: (shareFoodLog) => {
+        set((state) => ({ profile: { ...state.profile, shareFoodLog } }));
+        syncProfileField('share_food_log', shareFoodLog);
       },
     }),
     {

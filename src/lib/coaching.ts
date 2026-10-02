@@ -5,11 +5,14 @@ import {
   CoachLink,
   DayOfWeek,
   ExerciseSlug,
+  FoodLogEntry,
   NutritionTarget,
   ProgramExercise,
   PtSubscription,
+  StudentProfileInfo,
   StudentSummary,
   WeeklyProgram,
+  WorkoutSet,
 } from '../types';
 import { emptyWeek } from '../store/programStore';
 
@@ -254,6 +257,70 @@ export async function submitCheckin(photoPath: string, weightKg: number | null):
 export async function commentOnCheckin(checkinId: string, comment: string): Promise<void> {
   const { error } = await supabase.rpc('comment_on_checkin', { checkin_id: checkinId, comment });
   if (error) throw error;
+}
+
+export async function fetchStudentProfile(studentId: string): Promise<StudentProfileInfo | null> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('display_name, gender, height_cm, weight_kg, avatar_url, share_food_log')
+    .eq('id', studentId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    displayName: data.display_name ?? '',
+    gender: data.gender,
+    heightCm: data.height_cm,
+    weightKg: data.weight_kg,
+    avatarUrl: data.avatar_url,
+    shareFoodLog: !!data.share_food_log,
+  };
+}
+
+// Last `days` days of a linked student's logged sets, newest first.
+export async function fetchStudentSets(studentId: string, days = 90): Promise<WorkoutSet[]> {
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const { data, error } = await supabase
+    .from('workout_sets')
+    .select('id, exercise_slug, weight_kg, reps, is_pr, performed_at')
+    .eq('user_id', studentId)
+    .gte('performed_at', since)
+    .order('performed_at', { ascending: false })
+    .limit(3000);
+  if (error || !data) return [];
+  return data.map((r) => ({
+    id: r.id,
+    exerciseSlug: r.exercise_slug as ExerciseSlug,
+    weightKg: Number(r.weight_kg),
+    reps: r.reps,
+    isPr: r.is_pr,
+    performedAt: r.performed_at,
+  }));
+}
+
+// Empty unless the student has switched on food-log sharing — the database
+// policy enforces that, so an empty list here can mean either "not shared"
+// or "nothing logged"; callers use fetchStudentProfile's shareFoodLog to tell.
+export async function fetchStudentFoodLog(studentId: string, days = 7): Promise<FoodLogEntry[]> {
+  const since = new Date();
+  since.setHours(0, 0, 0, 0);
+  since.setDate(since.getDate() - (days - 1));
+  const { data, error } = await supabase
+    .from('food_log_entries')
+    .select('*')
+    .eq('user_id', studentId)
+    .gte('logged_at', since.toISOString())
+    .order('logged_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map((r) => ({
+    id: r.id,
+    foodSlug: r.food_slug,
+    label: r.label,
+    quantity: Number(r.quantity),
+    calories: r.calories,
+    proteinG: r.protein_g,
+    loggedAt: r.logged_at,
+    photoPath: r.photo_path ?? null,
+  }));
 }
 
 export async function fetchMySubscription(): Promise<PtSubscription | null> {
