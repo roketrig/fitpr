@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { MuscleMapCard } from '../../components/MuscleMapCard';
 import { StatRow } from '../../components/StatRow';
 import { WeeklyVolumeChart } from '../../components/WeeklyVolumeChart';
 import { getExercise } from '../../constants/exercises';
@@ -108,6 +109,8 @@ export function StudentOverviewTab({ studentId, studentName }: { studentId: stri
         <Text style={styles.sectionLabel}>{t('profile.weeklyVolume')}</Text>
         <WeeklyVolumeChart buckets={weekly} />
       </View>
+
+      <MuscleMapCard sets={sets} gender={profile?.gender ?? null} />
 
       <View>
         <Text style={styles.sectionLabel}>{t('pt.recentPrs')}</Text>

@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { AuthOverlay } from '../components/AuthOverlay';
 import { DeleteAccountOverlay } from '../components/DeleteAccountOverlay';
+import { MuscleMapCard } from '../components/MuscleMapCard';
 import { PTSubscriptionCard } from '../components/PTSubscriptionCard';
 import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
@@ -561,6 +562,10 @@ export function ProfileScreen() {
 
           <Text style={styles.chartTitle}>{t('profile.weeklyVolume')}</Text>
           <WeeklyVolumeChart buckets={weeklyVolume} />
+
+          <View style={{ marginTop: 20 }}>
+            <MuscleMapCard sets={sets} gender={profile.gender} />
+          </View>
         </View>
 
         <View style={styles.section}>

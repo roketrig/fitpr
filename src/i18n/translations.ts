@@ -1,4 +1,4 @@
-import { CategoryKey, ExerciseSlug, Language } from '../types';
+import { CategoryKey, ExerciseSlug, Language, Muscle } from '../types';
 
 export const CATEGORY_LABELS: Record<Language, Record<CategoryKey, string>> = {
   en: {
@@ -20,6 +20,21 @@ export const CATEGORY_LABELS: Record<Language, Record<CategoryKey, string>> = {
     core: 'KARIN',
     cardio: 'KARDİYO & ISINMA',
     wrist: 'BİLEK',
+  },
+};
+
+export const MUSCLE_LABELS: Record<Language, Record<Muscle, string>> = {
+  en: {
+    chest: 'Chest', front_delts: 'Front Delts', side_delts: 'Side Delts', rear_delts: 'Rear Delts',
+    traps: 'Traps', biceps: 'Biceps', triceps: 'Triceps', forearms: 'Forearms', abs: 'Abs',
+    obliques: 'Obliques', lats: 'Lats', upper_back: 'Upper Back', lower_back: 'Lower Back',
+    glutes: 'Glutes', quads: 'Quads', hamstrings: 'Hamstrings', calves: 'Calves', adductors: 'Inner Thigh',
+  },
+  tr: {
+    chest: 'Göğüs', front_delts: 'Ön Omuz', side_delts: 'Yan Omuz', rear_delts: 'Arka Omuz',
+    traps: 'Trapez', biceps: 'Biceps', triceps: 'Triceps', forearms: 'Ön Kol', abs: 'Karın',
+    obliques: 'Yan Karın', lats: 'Kanat', upper_back: 'Üst Sırt', lower_back: 'Bel',
+    glutes: 'Kalça', quads: 'Ön Bacak', hamstrings: 'Arka Bacak', calves: 'Baldır', adductors: 'İç Bacak',
   },
 };
 
@@ -339,6 +354,16 @@ const en = {
   'profile.personalRecords': 'PERSONAL RECORDS',
   'profile.allTime': 'ALL TIME',
   'profile.thisMonth': 'THIS MONTH',
+  'muscle.title': 'MUSCLE MAP',
+  'muscle.front': 'FRONT',
+  'muscle.back': 'BACK',
+  'muscle.period7': 'LAST 7 DAYS',
+  'muscle.period30': 'LAST 30 DAYS',
+  'muscle.empty': 'No sets logged in this period.',
+  'muscle.less': 'Less',
+  'muscle.more': 'More',
+  'muscle.setsUnit': 'sets',
+  'muscle.hint': 'Based on sets: the main muscles of an exercise count fully, helper muscles count half.',
   'profile.currentStreak': 'CURRENT STREAK',
   'profile.avgSession': 'AVG SESSION KG',
   'profile.topExercise': 'MOST TRAINED',
@@ -586,6 +611,16 @@ const tr: Record<keyof typeof en, string> = {
   'profile.personalRecords': 'KİŞİSEL REKORLAR',
   'profile.allTime': 'TÜM ZAMANLAR',
   'profile.thisMonth': 'BU AY',
+  'muscle.title': 'KAS HARİTASI',
+  'muscle.front': 'ÖN',
+  'muscle.back': 'ARKA',
+  'muscle.period7': 'SON 7 GÜN',
+  'muscle.period30': 'SON 30 GÜN',
+  'muscle.empty': 'Bu dönemde set kaydı yok.',
+  'muscle.less': 'Az',
+  'muscle.more': 'Çok',
+  'muscle.setsUnit': 'set',
+  'muscle.hint': 'Setlere göre hesaplanır: hareketin ana kasları tam, yardımcı kasları yarım sayılır.',
   'profile.currentStreak': 'GÜNCEL SERİ',
   'profile.avgSession': 'ORT. SEANS KG',
   'profile.topExercise': 'EN ÇOK YAPILAN',

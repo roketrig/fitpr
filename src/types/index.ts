@@ -143,6 +143,26 @@ export type CategoryKey =
   | 'cardio'
   | 'wrist';
 
+export type Muscle =
+  | 'chest'
+  | 'front_delts'
+  | 'side_delts'
+  | 'rear_delts'
+  | 'traps'
+  | 'biceps'
+  | 'triceps'
+  | 'forearms'
+  | 'abs'
+  | 'obliques'
+  | 'lats'
+  | 'upper_back'
+  | 'lower_back'
+  | 'glutes'
+  | 'quads'
+  | 'hamstrings'
+  | 'calves'
+  | 'adductors';
+
 export type EquipmentType = 'barbell' | 'dumbbell' | 'machine' | 'bodyweight';
 
 // weight_reps: track weight (kg) + reps. reps_only: track reps only (bodyweight).
