@@ -1,7 +1,6 @@
 import { ArrowRightLeft, Minus, Plus, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,13 +8,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ExercisePickerList } from '../components/ExercisePickerList';
 import { AppHeader } from '../components/AppHeader';
-import { CATEGORY_ORDER, EXERCISES, getExercise } from '../constants/exercises';
+import { getExercise } from '../constants/exercises';
 import { useT } from '../i18n/useT';
 import { useAuthStore } from '../store/authStore';
 import { useProgramStore } from '../store/programStore';
 import { Colors, fonts, useColors } from '../theme';
-import { CategoryKey, DayOfWeek, ExerciseSlug } from '../types';
+import { DayOfWeek, ExerciseSlug } from '../types';
 
 const DAYS: DayOfWeek[] = [1, 2, 3, 4, 5, 6, 0]; // display Monday-first
 
@@ -166,36 +166,7 @@ export function ProgramScreen() {
                 <X size={20} color={colors.foreground} />
               </Pressable>
             </View>
-            <FlatList
-              data={CATEGORY_ORDER as readonly CategoryKey[]}
-              keyExtractor={(c) => c}
-              contentContainerStyle={{ padding: 16 }}
-              renderItem={({ item: category }) => (
-                <View style={{ marginBottom: 20 }}>
-                  <Text style={styles.pickerCategory}>{categoryLabel(category)}</Text>
-                  {EXERCISES.filter((e) => e.category === category).map((ex) => {
-                    const added = assignedSlugs.has(ex.slug);
-                    return (
-                      <Pressable
-                        key={ex.slug}
-                        style={[styles.pickerRow, added && styles.pickerRowAdded]}
-                        onPress={() => !added && addExerciseToDay(selectedDay, ex.slug)}
-                        disabled={added}
-                      >
-                        <Text style={[styles.pickerRowText, added && styles.pickerRowTextAdded]}>
-                          {exerciseName(ex.slug)}
-                        </Text>
-                        {added ? (
-                          <Text style={styles.pickerAddedLabel}>✓</Text>
-                        ) : (
-                          <Plus size={16} color={colors.lime} />
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-            />
+            <ExercisePickerList assigned={assignedSlugs} onPick={(slug) => addExerciseToDay(selectedDay, slug)} />
             <Pressable style={styles.doneButton} onPress={() => setPickerOpen(false)}>
               <Text style={styles.doneButtonText}>{t('program.done')}</Text>
             </Pressable>
@@ -339,7 +310,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     paddingVertical: 12,
   },
   moveDayName: { color: colors.foreground, fontSize: 14, fontWeight: '700' },
-  moveDayWarning: { color: colors.orange, fontSize: 11, fontWeight: '600' },
+  moveDayWarning: { color: colors.muted, fontSize: 11, fontWeight: '600' },
   moveCancelButton: { paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   moveCancelButtonText: { color: colors.muted, fontSize: 13, fontWeight: '700', letterSpacing: 0.5 },
   emptyCard: {

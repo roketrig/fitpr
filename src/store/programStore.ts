@@ -57,32 +57,38 @@ function deleteRemote(day: DayOfWeek, exerciseSlug: ExerciseSlug) {
     .then(({ error }) => error && console.warn('Supabase program delete failed', error));
 }
 
-// Moving a day overwrites whatever was on the target day, so both the old
-// source rows and any old target rows need clearing before the moved
-// entries land — three steps, done in order so a mid-failure can't leave
-// the same exercise duplicated on both days.
-async function moveDayRemote(from: DayOfWeek, to: DayOfWeek, entries: ProgramExercise[]) {
+// Moving a day swaps it with the target (an empty target just receives the
+// exercises). Both days' rows are cleared first and then rewritten, in order,
+// so a mid-failure can't leave the same exercise duplicated on both days.
+async function swapDaysRemote(
+  from: DayOfWeek,
+  to: DayOfWeek,
+  fromEntries: ProgramExercise[],
+  toEntries: ProgramExercise[]
+) {
   const userId = getCurrentUserId();
   if (!userId) return;
+  const rows = (day: DayOfWeek, entries: ProgramExercise[]) =>
+    entries.map((e, i) => ({
+      user_id: userId,
+      day_of_week: day,
+      exercise_slug: e.exerciseSlug,
+      target_sets: e.targetSets,
+      target_reps: e.targetReps,
+      position: i,
+    }));
   try {
     await supabase.from('program_exercises').delete().match({ user_id: userId, day_of_week: to });
     await supabase.from('program_exercises').delete().match({ user_id: userId, day_of_week: from });
-    if (entries.length > 0) {
-      const { error } = await supabase.from('program_exercises').upsert(
-        entries.map((e, i) => ({
-          user_id: userId,
-          day_of_week: to,
-          exercise_slug: e.exerciseSlug,
-          target_sets: e.targetSets,
-          target_reps: e.targetReps,
-          position: i,
-        })),
-        { onConflict: 'user_id,day_of_week,exercise_slug' }
-      );
+    const all = [...rows(to, fromEntries), ...rows(from, toEntries)];
+    if (all.length > 0) {
+      const { error } = await supabase
+        .from('program_exercises')
+        .upsert(all, { onConflict: 'user_id,day_of_week,exercise_slug' });
       if (error) throw error;
     }
   } catch (error) {
-    console.warn('Supabase program move failed', error);
+    console.warn('Supabase program swap failed', error);
   }
 }
 
@@ -181,11 +187,12 @@ export const useProgramStore = create<ProgramState>()(
       moveDay: (from, to) => {
         if (from === to) return;
         lastLocalEditAt = Date.now();
-        const entries = get().week[from] ?? [];
+        const fromEntries = get().week[from] ?? [];
+        const toEntries = get().week[to] ?? [];
         set((state) => ({
-          week: { ...state.week, [to]: entries, [from]: [] },
+          week: { ...state.week, [to]: fromEntries, [from]: toEntries },
         }));
-        moveDayRemote(from, to, entries);
+        swapDaysRemote(from, to, fromEntries, toEntries);
       },
     }),
     {

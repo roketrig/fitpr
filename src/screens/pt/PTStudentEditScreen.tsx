@@ -1,9 +1,10 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, Minus, Plus, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CATEGORY_ORDER, EXERCISES, getExercise } from '../../constants/exercises';
+import { ExercisePickerList } from '../../components/ExercisePickerList';
+import { EXERCISES, getExercise } from '../../constants/exercises';
 import { useT } from '../../i18n/useT';
 import {
   assignExerciseToStudent,
@@ -13,7 +14,7 @@ import {
 } from '../../lib/coaching';
 import { PTDashboardParamList } from '../../navigation/PTDashboardNavigator';
 import { Colors, fonts, useColors } from '../../theme';
-import { CategoryKey, DayOfWeek, WeeklyProgram } from '../../types';
+import { DayOfWeek, WeeklyProgram } from '../../types';
 import { StudentCheckinsTab } from './StudentCheckinsTab';
 import { StudentNutritionTab } from './StudentNutritionTab';
 import { StudentOverviewTab } from './StudentOverviewTab';
@@ -250,36 +251,7 @@ export function PTStudentEditScreen() {
                 <X size={20} color={colors.foreground} />
               </Pressable>
             </View>
-            <FlatList
-              data={CATEGORY_ORDER as readonly CategoryKey[]}
-              keyExtractor={(c) => c}
-              contentContainerStyle={{ padding: 16 }}
-              renderItem={({ item: category }) => (
-                <View style={{ marginBottom: 20 }}>
-                  <Text style={styles.pickerCategory}>{categoryLabel(category)}</Text>
-                  {EXERCISES.filter((e) => e.category === category).map((ex) => {
-                    const added = assignedSlugs.has(ex.slug);
-                    return (
-                      <Pressable
-                        key={ex.slug}
-                        style={[styles.pickerRow, added && styles.pickerRowAdded]}
-                        onPress={() => !added && handleAdd(ex.slug)}
-                        disabled={added}
-                      >
-                        <Text style={[styles.pickerRowText, added && styles.pickerRowTextAdded]}>
-                          {exerciseName(ex.slug)}
-                        </Text>
-                        {added ? (
-                          <Text style={styles.pickerAddedLabel}>✓</Text>
-                        ) : (
-                          <Plus size={16} color={colors.lime} />
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-            />
+            <ExercisePickerList assigned={assignedSlugs} onPick={handleAdd} />
             <Pressable style={styles.doneButton} onPress={() => setPickerOpen(false)}>
               <Text style={styles.doneButtonText}>{t('program.done')}</Text>
             </Pressable>
