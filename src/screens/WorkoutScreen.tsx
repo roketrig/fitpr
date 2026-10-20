@@ -20,7 +20,7 @@ import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
 import { EXERCISES, getExercise, SETS_PER_SESSION } from '../constants/exercises';
 import { useT } from '../i18n/useT';
-import { getValueStepConfig, unitKeyFor } from '../lib/metric';
+import { formatSeconds, nextRepsOrSeconds, nextWeight, unitKeyFor } from '../lib/metric';
 import { currentStreakDays, sessionStatsFor, suggestedNextValue, trainingWeekNumber } from '../lib/stats';
 import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
@@ -68,9 +68,7 @@ export function WorkoutScreen() {
   const targetSets = programEntry?.targetSets ?? SETS_PER_SESSION;
   const targetReps = programEntry?.targetReps ?? REPS_DEFAULT;
   const unit = unitKeyFor(exercise.metric);
-  const stepConfig = getValueStepConfig(exercise);
 
-  const [reps, setReps] = useState(targetReps);
   const [celebration, setCelebration] = useState<{ visible: boolean; badges: UnlockedBadge[] }>({
     visible: false,
     badges: [],
@@ -108,6 +106,11 @@ export function WorkoutScreen() {
   const week = useMemo(() => trainingWeekNumber(sets), [sets]);
 
   const [weightKg, setWeightKg] = useState(() => suggestedNextValue(sets, activeSlug, personalBest));
+  const [reps, setReps] = useState(() =>
+    exercise.metric === 'weight_reps'
+      ? targetReps
+      : suggestedNextValue(sets, activeSlug, personalBestFor(activeSlug), programEntry?.targetReps)
+  );
 
   function selectExercise(nextIndex: number) {
     if (activeSlugs.length === 0) return;
@@ -120,7 +123,7 @@ export function WorkoutScreen() {
       setWeightKg(suggestedNextValue(sets, nextSlug, personalBestFor(nextSlug)));
       setReps(nextProgramEntry?.targetReps ?? REPS_DEFAULT);
     } else {
-      setReps(suggestedNextValue(sets, nextSlug, personalBestFor(nextSlug)));
+      setReps(suggestedNextValue(sets, nextSlug, personalBestFor(nextSlug), nextProgramEntry?.targetReps));
     }
   }
 
@@ -349,25 +352,16 @@ export function WorkoutScreen() {
                 label={t('workout.weight')}
                 value={String(weightKg)}
                 unit={t('workout.kg')}
-                onDecrement={() => setWeightKg((w) => Math.max(stepConfig.min, w - stepConfig.step))}
-                onIncrement={() => setWeightKg((w) => w + stepConfig.step)}
+                onDecrement={(m) => setWeightKg((w) => nextWeight(exercise, w, -1, m))}
+                onIncrement={(m) => setWeightKg((w) => nextWeight(exercise, w, 1, m))}
               />
             )}
             <NumberStepperCard
               label={exercise.metric === 'time_seconds' ? t('workout.seconds') : t('workout.reps')}
-              value={String(reps)}
+              value={exercise.metric === 'time_seconds' ? formatSeconds(reps) : String(reps)}
               unit={exercise.metric === 'time_seconds' ? t('workout.seconds') : t('workout.reps')}
-              onDecrement={() =>
-                setReps((r) =>
-                  Math.max(
-                    exercise.metric === 'time_seconds' ? 5 : 1,
-                    r - (exercise.metric === 'time_seconds' ? 5 : 1)
-                  )
-                )
-              }
-              onIncrement={() =>
-                setReps((r) => r + (exercise.metric === 'time_seconds' ? 5 : 1))
-              }
+              onDecrement={(m) => setReps((r) => nextRepsOrSeconds(exercise.metric, r, -1, m))}
+              onIncrement={(m) => setReps((r) => nextRepsOrSeconds(exercise.metric, r, 1, m))}
             />
           </View>
 

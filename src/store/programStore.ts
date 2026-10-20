@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
+import { getExercise } from '../constants/exercises';
+import { defaultTargetReps } from '../lib/metric';
 import { DayOfWeek, ExerciseSlug, ProgramExercise, WeeklyProgram } from '../types';
 
 // See foodLogStore: skip a cloud refresh that could race a just-made local edit.
@@ -10,7 +12,6 @@ let lastLocalEditAt = 0;
 const LOCAL_EDIT_GRACE_MS = 8000;
 
 const DEFAULT_TARGET_SETS = 3;
-const DEFAULT_TARGET_REPS = 12;
 
 export function emptyWeek(): WeeklyProgram {
   return { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
@@ -120,7 +121,7 @@ export const useProgramStore = create<ProgramState>()(
         const entry: ProgramExercise = {
           exerciseSlug,
           targetSets: DEFAULT_TARGET_SETS,
-          targetReps: DEFAULT_TARGET_REPS,
+          targetReps: defaultTargetReps(getExercise(exerciseSlug).metric),
         };
         set((state) => ({
           week: { ...state.week, [day]: [...(state.week[day] ?? []), entry] },

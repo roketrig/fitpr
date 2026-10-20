@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExercisePickerList } from '../components/ExercisePickerList';
 import { AppHeader } from '../components/AppHeader';
 import { getExercise } from '../constants/exercises';
+import { formatSeconds, nextRepsOrSeconds } from '../lib/metric';
 import { useT } from '../i18n/useT';
 import { useAuthStore } from '../store/authStore';
 import { useProgramStore } from '../store/programStore';
@@ -130,14 +131,15 @@ export function ProgramScreen() {
                       <TargetStepper
                         label={ex.metric === 'time_seconds' ? t('program.secondsLabel') : t('program.repsLabel')}
                         value={entry.targetReps}
+                        display={ex.metric === 'time_seconds' ? formatSeconds(entry.targetReps) : undefined}
                         onDecrement={() =>
                           updateExerciseTarget(selectedDay, entry.exerciseSlug, {
-                            targetReps: Math.max(1, entry.targetReps - (ex.metric === 'time_seconds' ? 5 : 1)),
+                            targetReps: nextRepsOrSeconds(ex.metric, entry.targetReps, -1),
                           })
                         }
                         onIncrement={() =>
                           updateExerciseTarget(selectedDay, entry.exerciseSlug, {
-                            targetReps: entry.targetReps + (ex.metric === 'time_seconds' ? 5 : 1),
+                            targetReps: nextRepsOrSeconds(ex.metric, entry.targetReps, 1),
                           })
                         }
                       />
@@ -207,11 +209,13 @@ export function ProgramScreen() {
 function TargetStepper({
   label,
   value,
+  display,
   onDecrement,
   onIncrement,
 }: {
   label: string;
   value: number;
+  display?: string;
   onDecrement: () => void;
   onIncrement: () => void;
 }) {
@@ -224,7 +228,7 @@ function TargetStepper({
         <Pressable onPress={onDecrement} style={styles.targetButton} accessibilityLabel={`Decrease ${label}`}>
           <Minus size={14} color={colors.lime} strokeWidth={3} />
         </Pressable>
-        <Text style={styles.targetValue}>{value}</Text>
+        <Text style={styles.targetValue}>{display ?? value}</Text>
         <Pressable onPress={onIncrement} style={styles.targetButton} accessibilityLabel={`Increase ${label}`}>
           <Plus size={14} color={colors.lime} strokeWidth={3} />
         </Pressable>

@@ -1,5 +1,5 @@
 import { getExercise } from '../constants/exercises';
-import { primaryValueOf } from './metric';
+import { defaultStartWeight, primaryValueOf, snapTimeSeconds, snapWeight } from './metric';
 import { ExerciseSlug, WorkoutSet } from '../types';
 
 // Local calendar date (not UTC — an ISO string slice would misclassify sets
@@ -172,18 +172,30 @@ export function sessionStatsFor(sets: WorkoutSet[], exerciseSlug: ExerciseSlug):
   return { todaysSets, sessionVolume, lastSessionVolume };
 }
 
+// What to pre-fill the stepper with: the last set of this exercise if there
+// is one, otherwise the program's target, otherwise a sensible starting
+// point — always snapped to the grid the steppers move on.
 export function suggestedNextValue(
   sets: WorkoutSet[],
   exerciseSlug: ExerciseSlug,
-  personalBest: number
+  personalBest: number,
+  targetValue?: number
 ): number {
   const exercise = getExercise(exerciseSlug);
   const exerciseSets = sets
     .filter((s) => s.exerciseSlug === exerciseSlug)
     .sort((a, b) => b.performedAt.localeCompare(a.performedAt));
 
-  if (exerciseSets.length > 0) return primaryValueOf(exerciseSets[0], exercise.metric);
-  if (exercise.metric !== 'weight_reps') return personalBest > 0 ? personalBest : 8;
-  if (personalBest > 0) return Math.round((personalBest * 0.7) / 2.5) * 2.5;
-  return exercise.equipment === 'barbell' ? 20 : exercise.equipment === 'dumbbell' ? 5 : 20;
+  if (exercise.metric === 'time_seconds') {
+    if (exerciseSets.length > 0) return snapTimeSeconds(exerciseSets[0].reps);
+    if (targetValue) return snapTimeSeconds(targetValue);
+    return personalBest > 0 ? snapTimeSeconds(personalBest) : 30;
+  }
+  if (exercise.metric === 'reps_only') {
+    if (exerciseSets.length > 0) return exerciseSets[0].reps;
+    return targetValue ?? (personalBest > 0 ? personalBest : 8);
+  }
+  if (exerciseSets.length > 0) return snapWeight(exercise, exerciseSets[0].weightKg);
+  if (personalBest > 0) return snapWeight(exercise, personalBest * 0.7);
+  return defaultStartWeight(exercise);
 }

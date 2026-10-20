@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExercisePickerList } from '../../components/ExercisePickerList';
 import { EXERCISES, getExercise } from '../../constants/exercises';
+import { defaultTargetReps, formatSeconds, nextRepsOrSeconds } from '../../lib/metric';
 import { useT } from '../../i18n/useT';
 import {
   assignExerciseToStudent,
@@ -59,7 +60,7 @@ export function PTStudentEditScreen() {
     setProgramError(null);
     setWeek({
       ...week,
-      [selectedDay]: [...week[selectedDay], { exerciseSlug: slug, targetSets: 3, targetReps: 12 }],
+      [selectedDay]: [...week[selectedDay], { exerciseSlug: slug, targetSets: 3, targetReps: defaultTargetReps(getExercise(slug).metric) }],
     });
     try {
       const position = (previous[selectedDay] ?? []).length;
@@ -210,17 +211,15 @@ export function PTStudentEditScreen() {
                             ex.metric === 'time_seconds' ? t('program.secondsLabel') : t('program.repsLabel')
                           }
                           value={entry.targetReps}
+                          display={ex.metric === 'time_seconds' ? formatSeconds(entry.targetReps) : undefined}
                           onDecrement={() =>
                             handleTargetChange(entry.exerciseSlug, {
-                              targetReps: Math.max(
-                                1,
-                                entry.targetReps - (ex.metric === 'time_seconds' ? 5 : 1)
-                              ),
+                              targetReps: nextRepsOrSeconds(ex.metric, entry.targetReps, -1),
                             })
                           }
                           onIncrement={() =>
                             handleTargetChange(entry.exerciseSlug, {
-                              targetReps: entry.targetReps + (ex.metric === 'time_seconds' ? 5 : 1),
+                              targetReps: nextRepsOrSeconds(ex.metric, entry.targetReps, 1),
                             })
                           }
                         />
@@ -265,11 +264,13 @@ export function PTStudentEditScreen() {
 function TargetStepper({
   label,
   value,
+  display,
   onDecrement,
   onIncrement,
 }: {
   label: string;
   value: number;
+  display?: string;
   onDecrement: () => void;
   onIncrement: () => void;
 }) {
@@ -282,7 +283,7 @@ function TargetStepper({
         <Pressable onPress={onDecrement} style={styles.targetButton}>
           <Minus size={14} color={colors.lime} strokeWidth={3} />
         </Pressable>
-        <Text style={styles.targetValue}>{value}</Text>
+        <Text style={styles.targetValue}>{display ?? value}</Text>
         <Pressable onPress={onIncrement} style={styles.targetButton}>
           <Plus size={14} color={colors.lime} strokeWidth={3} />
         </Pressable>
