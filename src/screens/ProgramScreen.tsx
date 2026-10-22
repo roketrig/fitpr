@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExercisePickerList } from '../components/ExercisePickerList';
 import { AppHeader } from '../components/AppHeader';
+import { FadeIn } from '../components/FadeIn';
 import { getExercise } from '../constants/exercises';
 import { formatSeconds, nextRepsOrSeconds } from '../lib/metric';
 import { useT } from '../i18n/useT';
@@ -95,10 +96,10 @@ export function ProgramScreen() {
             </View>
           ) : (
             <View style={{ gap: 10 }}>
-              {dayExercises.map((entry) => {
+              {dayExercises.map((entry, index) => {
                 const ex = getExercise(entry.exerciseSlug);
                 return (
-                  <View key={entry.exerciseSlug} style={styles.exerciseCard}>
+                  <FadeIn key={entry.exerciseSlug} delay={Math.min(index * 40, 200)} style={styles.exerciseCard}>
                     <View style={styles.exerciseCardHeader}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.exerciseCardTitle}>{exerciseName(entry.exerciseSlug)}</Text>
@@ -144,7 +145,7 @@ export function ProgramScreen() {
                         }
                       />
                     </View>
-                  </View>
+                  </FadeIn>
                 );
               })}
             </View>

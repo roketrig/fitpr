@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { computeFoodNutrition, defaultQuantityFor, Food, FOOD_CATEGORY_ORDER, FOODS, quantityStepFor } from '../constants/foods';
 import { useT } from '../i18n/useT';
 import { pickImage, uploadImage } from '../lib/media';
+import { parseDecimal } from '../lib/numbers';
 import { useAuthStore } from '../store/authStore';
 import { Colors, fonts, useColors } from '../theme';
 import { NewFoodLogEntry } from '../types';
@@ -78,8 +79,8 @@ export function AddFoodOverlay({ onClose, onAdd }: Props) {
       foodSlug: null,
       label: customName.trim(),
       quantity: 1,
-      calories: Number(customCalories) || 0,
-      proteinG: Number(customProtein) || 0,
+      calories: Math.max(0, parseDecimal(customCalories) ?? 0),
+      proteinG: Math.max(0, parseDecimal(customProtein) ?? 0),
       photoPath,
     });
     onClose();

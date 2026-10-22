@@ -156,7 +156,7 @@ export function AchievementsScreen() {
         keyExtractor={(item) => item.key}
         stickySectionHeadersEnabled={false}
         ListHeaderComponent={
-          <View>
+          <View style={styles.headerBleed}>
             <AppHeader />
             <View style={styles.section}>
               <View style={styles.topRow}>
@@ -213,6 +213,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   unlockedCount: { color: colors.orange, fontSize: 26, fontFamily: fonts.display },
   unlockedLabel: { color: colors.muted, fontSize: 10, fontWeight: '700', letterSpacing: 1 },
   list: { paddingHorizontal: 16, paddingBottom: 24 },
+  // The list pads its content by 16 and the header brings its own 16 — cancel one so the title lines up with the other screens.
+  headerBleed: { marginHorizontal: -16 },
   categoryHeader: {
     color: colors.lime,
     fontSize: 12,

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { getExercise } from '../constants/exercises';
 import { getNewlyUnlockedAchievements, STREAK_ACHIEVEMENTS } from '../constants/achievements';
+import { generateUuid, isUuid } from '../lib/id';
 import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import { currentStreakDays } from '../lib/stats';
@@ -22,6 +23,10 @@ interface WorkoutState {
   sets: WorkoutSet[];
   unlockedAchievementSlugs: string[];
   unlockedAt: Record<string, string>;
+  // Ids of sets the cloud hasn't confirmed yet (offline, guest, or a failed
+  // request). They stay local and are retried, never silently dropped.
+  pendingSyncIds: string[];
+  flushPendingSets: () => Promise<void>;
   personalBestFor: (exerciseSlug: ExerciseSlug) => number;
   setsFor: (exerciseSlug: ExerciseSlug) => WorkoutSet[];
   addSet: (
@@ -32,20 +37,34 @@ interface WorkoutState {
   ) => AddSetResult;
 }
 
-function syncSetToCloud(set: WorkoutSet) {
+// Sets carry their own uuid, so retrying after a lost response can't create
+// a duplicate row.
+async function pushSetToCloud(set: WorkoutSet): Promise<boolean> {
   const userId = getCurrentUserId();
-  if (!userId) return;
-  supabase
-    .from('workout_sets')
-    .insert({
-      user_id: userId,
-      exercise_slug: set.exerciseSlug,
-      weight_kg: set.weightKg,
-      reps: set.reps,
-      is_pr: set.isPr,
-      performed_at: set.performedAt,
-    })
-    .then(({ error }) => error && console.warn('Supabase set insert failed', error));
+  if (!userId) return false;
+  const row = {
+    user_id: userId,
+    exercise_slug: set.exerciseSlug,
+    weight_kg: set.weightKg,
+    reps: set.reps,
+    is_pr: set.isPr,
+    performed_at: set.performedAt,
+  };
+  const { error } = isUuid(set.id)
+    ? await supabase.from('workout_sets').upsert({ id: set.id, ...row }, { onConflict: 'id' })
+    : await supabase.from('workout_sets').insert(row);
+  if (error) {
+    console.warn('Supabase set sync failed', error);
+    return false;
+  }
+  return true;
+}
+
+function markSynced(ids: string[]) {
+  if (ids.length === 0) return;
+  useWorkoutStore.setState((state) => ({
+    pendingSyncIds: state.pendingSyncIds.filter((id) => !ids.includes(id)),
+  }));
 }
 
 function syncBadgesToCloud(slugs: string[], unlockedAt: string) {
@@ -66,6 +85,15 @@ export const useWorkoutStore = create<WorkoutState>()(
       sets: [],
       unlockedAchievementSlugs: [],
       unlockedAt: {},
+      pendingSyncIds: [],
+
+      flushPendingSets: async () => {
+        if (!getCurrentUserId()) return;
+        const { sets, pendingSyncIds } = get();
+        const pending = sets.filter((s) => pendingSyncIds.includes(s.id));
+        const results = await Promise.all(pending.map(async (s) => ((await pushSetToCloud(s)) ? s.id : null)));
+        markSynced(results.filter((id): id is string => id !== null));
+      },
 
       personalBestFor: (exerciseSlug) => {
         const metric = getExercise(exerciseSlug).metric;
@@ -86,7 +114,7 @@ export const useWorkoutStore = create<WorkoutState>()(
         const isPr = newValue > previousBest;
 
         const newSet: WorkoutSet = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          id: generateUuid(),
           exerciseSlug,
           weightKg,
           reps,
@@ -126,6 +154,7 @@ export const useWorkoutStore = create<WorkoutState>()(
         const newSlugs = newBadges.map((b) => b.slug);
         set((state) => ({
           sets: updatedSets,
+          pendingSyncIds: [...state.pendingSyncIds, newSet.id],
           unlockedAchievementSlugs: [...alreadyUnlocked, ...newSlugs],
           unlockedAt: {
             ...state.unlockedAt,
@@ -133,7 +162,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           },
         }));
 
-        syncSetToCloud(newSet);
+        pushSetToCloud(newSet).then((ok) => ok && markSynced([newSet.id]));
         syncBadgesToCloud(newSlugs, unlockedAt);
 
         return { isPr, newBadges };

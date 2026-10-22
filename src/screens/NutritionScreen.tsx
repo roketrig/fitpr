@@ -1,8 +1,10 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { Check, Trash2, TriangleAlert } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Linking,
   Platform,
   Pressable,
@@ -16,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddFoodOverlay } from '../components/AddFoodOverlay';
 import { AppHeader } from '../components/AppHeader';
+import { FadeIn } from '../components/FadeIn';
 import { FoodPhotoThumb } from '../components/FoodPhotoThumb';
 import { useT } from '../i18n/useT';
 import { becomePT } from '../lib/coaching';
@@ -221,7 +224,7 @@ export function NutritionScreen() {
           ) : (
             <View style={{ marginTop: 12, gap: 8 }}>
               {entries.map((entry) => (
-                <View key={entry.id} style={styles.logRow}>
+                <FadeIn key={entry.id} style={styles.logRow}>
                   {entry.photoPath && (
                     <View style={styles.logThumbWrap}>
                       <FoodPhotoThumb path={entry.photoPath} />
@@ -251,7 +254,7 @@ export function NutritionScreen() {
                   <Pressable onPress={() => removeEntry(entry.id)} style={styles.removeButton}>
                     <Trash2 size={16} color={colors.orange} />
                   </Pressable>
-                </View>
+                </FadeIn>
               ))}
             </View>
           )}
@@ -285,6 +288,15 @@ function ProgressStat({
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const pct = target && target > 0 ? Math.min(1, value / target) : 0;
+  const widthAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(widthAnim, {
+      toValue: pct,
+      duration: 550,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [pct, widthAnim]);
   return (
     <View style={styles.progressCard}>
       <Text style={styles.progressLabel}>{label}</Text>
@@ -294,7 +306,12 @@ function ProgressStat({
         {target ? <Text style={styles.progressTarget}> / {target}{unit}</Text> : null}
       </Text>
       <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${pct * 100}%` }]} />
+        <Animated.View
+          style={[
+            styles.progressFill,
+            { width: widthAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+          ]}
+        />
       </View>
     </View>
   );

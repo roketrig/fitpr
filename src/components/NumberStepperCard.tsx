@@ -1,6 +1,6 @@
 import { Minus, Plus } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors, fonts, useColors } from '../theme';
 
 interface Props {
@@ -47,6 +47,16 @@ function useHoldRepeat(action: (multiplier: number) => void) {
 export function NumberStepperCard({ label, value, unit, onDecrement, onIncrement }: Props) {
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  // The number pops a little each time it changes.
+  const pop = useRef(new Animated.Value(1)).current;
+  const prevValue = useRef(value);
+  useEffect(() => {
+    if (prevValue.current === value) return;
+    prevValue.current = value;
+    pop.setValue(1.18);
+    Animated.spring(pop, { toValue: 1, friction: 5, tension: 220, useNativeDriver: true }).start();
+  }, [value, pop]);
+
   const dec = useHoldRepeat(onDecrement);
   const inc = useHoldRepeat(onIncrement);
   return (
@@ -62,7 +72,7 @@ export function NumberStepperCard({ label, value, unit, onDecrement, onIncrement
         >
           <Minus size={18} color={colors.lime} strokeWidth={3} />
         </Pressable>
-        <Text style={styles.value}>{value}</Text>
+        <Animated.Text style={[styles.value, { transform: [{ scale: pop }] }]}>{value}</Animated.Text>
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           onPressIn={inc.start}

@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { AuthOverlay } from '../components/AuthOverlay';
+import { DecimalInput } from '../components/DecimalInput';
 import { DeleteAccountOverlay } from '../components/DeleteAccountOverlay';
 import { MuscleMapCard } from '../components/MuscleMapCard';
 import { PTSubscriptionCard } from '../components/PTSubscriptionCard';
@@ -30,6 +31,7 @@ import { getPublicImageUrl, getSignedImageUrl, pickImage, uploadImage } from '..
 import { notifyOther, requestNotificationPermission, unregisterPushToken } from '../lib/notifications';
 import { supabase } from '../lib/supabase';
 import { unitKeyFor } from '../lib/metric';
+import { parseDecimal } from '../lib/numbers';
 import {
   averageSessionVolumeKg,
   currentStreakDays,
@@ -160,7 +162,7 @@ export function ProfileScreen() {
     try {
       const path = `${session.user.id}/${Date.now()}.jpg`;
       await uploadImage('checkin-photos', path, checkinPhotoUri);
-      await submitCheckin(path, checkinWeight ? Number(checkinWeight) : null);
+      await submitCheckin(path, parseDecimal(checkinWeight));
       setCheckinPhotoUri(null);
       setCheckinWeight('');
       setCheckins(await fetchMyCheckins());
@@ -254,6 +256,7 @@ export function ProfileScreen() {
             <Pressable
               onPress={async () => {
                 if (!session) return setAuthOpen(true);
+                await useWorkoutStore.getState().flushPendingSets();
                 await unregisterPushToken();
                 supabase.auth.signOut();
               }}
@@ -314,7 +317,7 @@ export function ProfileScreen() {
                   style={[styles.input, { marginTop: 12 }]}
                   value={checkinWeight}
                   onChangeText={setCheckinWeight}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   placeholder={t('profile.weightKg')}
                   placeholderTextColor={colors.muted}
                 />
@@ -384,22 +387,26 @@ export function ProfileScreen() {
           <View style={styles.row}>
             <View style={styles.flex1}>
               <Text style={styles.label}>{t('profile.heightCm')}</Text>
-              <TextInput
+              <DecimalInput
                 style={styles.input}
-                value={profile.heightCm?.toString() ?? ''}
-                onChangeText={(v) => setHeightCm(v ? Number(v) : null)}
-                keyboardType="numeric"
+                invalidStyle={styles.inputInvalid}
+                value={profile.heightCm}
+                onChange={setHeightCm}
+                min={100}
+                max={250}
                 placeholder="180"
                 placeholderTextColor={colors.muted}
               />
             </View>
             <View style={styles.flex1}>
               <Text style={styles.label}>{t('profile.weightKg')}</Text>
-              <TextInput
+              <DecimalInput
                 style={styles.input}
-                value={profile.weightKg?.toString() ?? ''}
-                onChangeText={(v) => setWeightKg(v ? Number(v) : null)}
-                keyboardType="numeric"
+                invalidStyle={styles.inputInvalid}
+                value={profile.weightKg}
+                onChange={setWeightKg}
+                min={20}
+                max={400}
                 placeholder="80"
                 placeholderTextColor={colors.muted}
               />
@@ -784,6 +791,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  inputInvalid: { borderColor: colors.orange },
   genderRow: { flexDirection: 'row', gap: 10 },
   genderButton: {
     flex: 1,

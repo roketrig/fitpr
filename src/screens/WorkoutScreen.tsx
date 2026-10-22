@@ -14,12 +14,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppHeader } from '../components/AppHeader';
 import { ExerciseDemoButton } from '../components/ExerciseDemoButton';
 import { ExerciseVisual } from '../components/ExerciseVisual';
+import { FadeIn } from '../components/FadeIn';
 import { NumberStepperCard } from '../components/NumberStepperCard';
 import { PRCelebration } from '../components/PRCelebration';
+import { SaveSetButton } from '../components/SaveSetButton';
+import { SetProgress } from '../components/SetProgress';
 import { StatRow } from '../components/StatRow';
 import { StatusPill } from '../components/StatusPill';
 import { EXERCISES, getExercise, SETS_PER_SESSION } from '../constants/exercises';
 import { useT } from '../i18n/useT';
+import { hapticSuccess } from '../lib/haptics';
 import { formatSeconds, nextRepsOrSeconds, nextWeight, unitKeyFor } from '../lib/metric';
 import { currentStreakDays, sessionStatsFor, suggestedNextValue, trainingWeekNumber } from '../lib/stats';
 import { useAuthStore } from '../store/authStore';
@@ -75,10 +79,16 @@ export function WorkoutScreen() {
   });
 
   const cardAnim = useRef(new Animated.Value(1)).current;
+  // +1 when moving to the next exercise, -1 to the previous: the card slides in from that side.
+  const slideDir = useRef(1);
   useEffect(() => {
     cardAnim.setValue(0);
-    Animated.timing(cardAnim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    Animated.timing(cardAnim, { toValue: 1, duration: 240, useNativeDriver: true }).start();
   }, [exerciseIndex, cardAnim]);
+
+  // The flame gives a little hop whenever the streak grows.
+  const flame = useRef(new Animated.Value(1)).current;
+  const prevStreak = useRef<number | null>(null);
 
   const gender = useProfileStore((s) => s.profile.gender);
   const sets = useWorkoutStore((s) => s.sets);
@@ -103,6 +113,15 @@ export function WorkoutScreen() {
   }, [sets, activeSlug, dateLocale]);
   const session = useMemo(() => sessionStatsFor(sets, activeSlug), [sets, activeSlug]);
   const streak = useMemo(() => currentStreakDays(sets), [sets]);
+  useEffect(() => {
+    if (prevStreak.current !== null && streak > prevStreak.current) {
+      Animated.sequence([
+        Animated.timing(flame, { toValue: 1.5, duration: 160, useNativeDriver: true }),
+        Animated.spring(flame, { toValue: 1, friction: 3, tension: 160, useNativeDriver: true }),
+      ]).start();
+    }
+    prevStreak.current = streak;
+  }, [streak, flame]);
   const week = useMemo(() => trainingWeekNumber(sets), [sets]);
 
   const [weightKg, setWeightKg] = useState(() => suggestedNextValue(sets, activeSlug, personalBest));
@@ -115,6 +134,7 @@ export function WorkoutScreen() {
   function selectExercise(nextIndex: number) {
     if (activeSlugs.length === 0) return;
     const wrapped = (nextIndex + activeSlugs.length) % activeSlugs.length;
+    slideDir.current = nextIndex >= exerciseIndex ? 1 : -1;
     setExerciseIndex(wrapped);
     const nextSlug = activeSlugs[wrapped];
     const nextExercise = getExercise(nextSlug);
@@ -165,13 +185,8 @@ export function WorkoutScreen() {
     })
   ).current;
 
-  const saveScale = useRef(new Animated.Value(1)).current;
-  function handleSavePressIn() {
-    Animated.spring(saveScale, { toValue: 0.95, useNativeDriver: true, speed: 50 }).start();
-  }
-  function handleSavePressOut() {
-    Animated.spring(saveScale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 10 }).start();
-  }
+  const [saveBurst, setSaveBurst] = useState(0);
+  const [lastSaved, setLastSaved] = useState('');
 
   function handleSave() {
     // Deferred a frame so the press-out spring (which fires in the same
@@ -179,6 +194,13 @@ export function WorkoutScreen() {
     // synchronous work (achievement checks, a store update that re-renders
     // this whole screen) runs — without this the two competed for the JS
     // thread right at release and the button felt like it stuttered.
+    const setNumber = session.todaysSets.length + 1;
+    const summary =
+      exercise.metric === 'weight_reps'
+        ? `${weightKg} ${unitLabel('kg')} × ${reps}`
+        : exercise.metric === 'time_seconds'
+          ? `${formatSeconds(reps)} ${unitLabel('sec')}`
+          : `${reps} ${unitLabel('reps')}`;
     requestAnimationFrame(() => {
       const { isPr, newBadges } = addSet(
         activeSlug,
@@ -186,6 +208,9 @@ export function WorkoutScreen() {
         reps,
         gender
       );
+      setLastSaved(t('workout.setSavedToast', { n: setNumber, summary }));
+      setSaveBurst((b) => b + 1);
+      hapticSuccess();
       if (isPr) {
         setCelebration({ visible: true, badges: newBadges });
       }
@@ -222,17 +247,21 @@ export function WorkoutScreen() {
               <Text style={styles.subtitleDim}>/</Text> {t('workout.week')} {week}
             </Text>
             <View style={styles.streakRow}>
-              <Flame size={18} color={colors.orange} fill={colors.orange} />
+              <Animated.View style={{ transform: [{ scale: flame }] }}>
+                <Flame size={18} color={colors.orange} fill={colors.orange} />
+              </Animated.View>
               <Text style={styles.streakValue}>{streak}</Text>
             </View>
           </View>
           <Text style={styles.streakLabel}>{t('workout.dayStreak')}</Text>
 
           {allDoneToday && (
-            <View style={styles.doneBanner}>
-              <Check size={16} color={colors.background} strokeWidth={3} />
-              <Text style={styles.doneBannerText}>{t('workout.allDoneToday')}</Text>
-            </View>
+            <FadeIn pop style={styles.doneBannerWrap}>
+              <View style={styles.doneBanner}>
+                <Check size={16} color={colors.background} strokeWidth={3} />
+                <Text style={styles.doneBannerText}>{t('workout.allDoneToday')}</Text>
+              </View>
+            </FadeIn>
           )}
         </View>
 
@@ -286,7 +315,12 @@ export function WorkoutScreen() {
               style={{
                 opacity: cardAnim,
                 transform: [
-                  { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+                  {
+                    translateX: cardAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [slideDir.current * 28, 0],
+                    }),
+                  },
                 ],
               }}
             >
@@ -338,13 +372,7 @@ export function WorkoutScreen() {
             </Text>
           </View>
 
-          <View style={styles.progressRow}>
-            {Array.from({ length: targetSets }).map((_, i) => (
-              <View key={i} style={styles.progressTrack}>
-                {i < setsCompleted && <View style={styles.progressFill} />}
-              </View>
-            ))}
-          </View>
+          <SetProgress total={targetSets} completed={setsCompleted} />
 
           <View style={styles.stepperRow}>
             {exercise.metric === 'weight_reps' && (
@@ -365,23 +393,26 @@ export function WorkoutScreen() {
             />
           </View>
 
-          <Pressable onPress={handleSave} onPressIn={handleSavePressIn} onPressOut={handleSavePressOut}>
-            <Animated.View style={[styles.saveButton, { transform: [{ scale: saveScale }] }]}>
-              <Check size={18} color={colors.background} strokeWidth={3} />
-              <Text style={styles.saveButtonText}>
-                {willBePr ? t('workout.saveSetPr') : t('workout.saveSet')}
-              </Text>
-            </Animated.View>
-          </Pressable>
+          <View style={styles.saveWrap}>
+            <SaveSetButton
+              label={willBePr ? t('workout.saveSetPr') : t('workout.saveSet')}
+              savedLabel={t('workout.saved')}
+              toastText={lastSaved}
+              burst={saveBurst}
+              onPress={handleSave}
+            />
+          </View>
         </View>
 
-        <StatRow
-          stats={[
-            { label: t('workout.sessionVolume'), value: `${session.sessionVolume} ${unitLabel(unit)}` },
-            { label: t('workout.setsCompleted'), value: `${setsCompleted}/${targetSets}` },
-            { label: t('workout.lastSession'), value: `${session.lastSessionVolume} ${unitLabel(unit)}` },
-          ]}
-        />
+        <View style={styles.statRowWrap}>
+          <StatRow
+            stats={[
+              { label: t('workout.sessionVolume'), value: `${session.sessionVolume} ${unitLabel(unit)}` },
+              { label: t('workout.setsCompleted'), value: `${setsCompleted}/${targetSets}` },
+              { label: t('workout.lastSession'), value: `${session.lastSessionVolume} ${unitLabel(unit)}` },
+            ]}
+          />
+        </View>
         </>
         )}
 
@@ -447,9 +478,8 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginTop: 14,
-    alignSelf: 'flex-start',
   },
+  doneBannerWrap: { marginTop: 14, alignSelf: 'flex-start' },
   doneBannerText: { color: colors.background, fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
   card: {
     marginHorizontal: 16,
@@ -523,27 +553,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   },
   pbUnit: { fontSize: 12, color: colors.muted, fontFamily: undefined },
   pbDate: { flex: 1, color: colors.muted, fontSize: 11, fontWeight: '600', textAlign: 'right' },
-  progressRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
-  progressTrack: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  progressFill: { flex: 1, backgroundColor: colors.lime, borderRadius: 4 },
   stepperRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.lime,
-    borderRadius: 14,
-    paddingVertical: 16,
-    marginTop: 16,
-  },
-  saveButtonText: { color: colors.background, fontSize: 15, fontWeight: '800', letterSpacing: 0.5 },
+  saveWrap: { marginTop: 16 },
+  statRowWrap: { marginHorizontal: 16 },
 });

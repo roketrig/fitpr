@@ -5,22 +5,20 @@ import {
   useFonts,
 } from '@expo-google-fonts/roboto-condensed';
 import React from 'react';
-import { ActivityIndicator, Platform, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { EmailConfirmedScreen } from './src/screens/EmailConfirmedScreen';
+import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
+import { detectAuthRedirect } from './src/lib/authRedirect';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { colors } from './src/theme';
 
-// Supabase's email confirmation/magic links redirect to this web deployment
-// (it's the Auth "Site URL"). Most of our users are on the native app, so
-// landing them in the full PT-dashboard-or-student-tabs web app after a
-// confirmation click is jarring — show a plain "you're set, go back to the
-// app" message for that one case instead.
-function isEmailAuthRedirect(): boolean {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
-  const params = window.location.hash.replace(/^#/, '') + '&' + window.location.search.replace(/^\?/, '');
-  return /(^|&)type=(signup|recovery|invite|magiclink|email_change)(&|$)/.test(params);
-}
+// Supabase's email links (confirm, reset password) redirect to this web
+// deployment (it's the Auth "Site URL"). Most of our users are on the native
+// app, so landing them in the full PT-dashboard-or-student-tabs web app after
+// a click is jarring — those links get a plain page instead (see
+// lib/authRedirect.ts for what counts as one).
+const authRedirect = detectAuthRedirect();
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -37,8 +35,11 @@ export default function App() {
     );
   }
 
-  if (isEmailAuthRedirect()) {
-    return <EmailConfirmedScreen />;
+  if (authRedirect?.kind === 'recovery') {
+    return <ResetPasswordScreen accessToken={authRedirect.accessToken} refreshToken={authRedirect.refreshToken} />;
+  }
+  if (authRedirect) {
+    return <EmailConfirmedScreen variant={authRedirect.kind === 'error' ? 'error' : 'confirmed'} />;
   }
 
   return (

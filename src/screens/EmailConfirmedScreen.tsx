@@ -1,21 +1,28 @@
-import { CheckCircle2 } from 'lucide-react-native';
+import { CheckCircle2, TriangleAlert } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useT } from '../i18n/useT';
 import { Colors, fonts, useColors } from '../theme';
 
-export function EmailConfirmedScreen() {
+// Plain landing page for email links: "confirmed" after a sign-up/magic
+// link, or "expired" when the link was already used or timed out.
+export function EmailConfirmedScreen({ variant = 'confirmed' }: { variant?: 'confirmed' | 'error' }) {
   const { t } = useT();
   const colors = useColors();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const isError = variant === 'error';
 
   return (
     <View style={styles.container}>
-      <View style={styles.badge}>
-        <CheckCircle2 size={40} color={colors.background} strokeWidth={2.5} />
+      <View style={[styles.badge, isError && styles.badgeError]}>
+        {isError ? (
+          <TriangleAlert size={38} color={colors.background} strokeWidth={2.5} />
+        ) : (
+          <CheckCircle2 size={40} color={colors.background} strokeWidth={2.5} />
+        )}
       </View>
-      <Text style={styles.title}>{t('emailConfirmed.title')}</Text>
-      <Text style={styles.body}>{t('emailConfirmed.body')}</Text>
+      <Text style={styles.title}>{isError ? t('emailConfirmed.errorTitle') : t('emailConfirmed.title')}</Text>
+      <Text style={styles.body}>{isError ? t('emailConfirmed.errorBody') : t('emailConfirmed.body')}</Text>
     </View>
   );
 }
@@ -37,6 +44,7 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 24,
   },
+  badgeError: { backgroundColor: colors.orange },
   title: {
     color: colors.foreground,
     fontSize: 26,

@@ -4,6 +4,7 @@ import { Apple, CalendarDays, Dumbbell, Trophy, UserRound } from 'lucide-react-n
 import React, { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TabIcon } from '../components/TabIcon';
 import { useT } from '../i18n/useT';
 import { useCloudRefresh } from '../lib/useCloudRefresh';
 import { useNotifications } from '../lib/useNotifications';
@@ -60,9 +61,9 @@ function StudentTabs() {
         tabBarActiveTintColor: colors.lime,
         tabBarInactiveTintColor: colors.muted,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ color, size, focused }) => {
           const Icon = ICONS[route.name as keyof typeof ICONS];
-          return <Icon color={color} size={size ?? 20} />;
+          return <TabIcon Icon={Icon} color={color} size={size ?? 20} focused={focused} />;
         },
       })}
     >

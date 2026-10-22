@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { useCoachStore } from '../store/coachStore';
 import { useFoodLogStore } from '../store/foodLogStore';
 import { useProgramStore } from '../store/programStore';
+import { useWorkoutStore } from '../store/workoutStore';
 
 const REFRESH_INTERVAL_MS = 30000;
 
@@ -13,6 +14,7 @@ const REFRESH_INTERVAL_MS = 30000;
 // foreground and every 30 seconds while it's open.
 export function refreshFromCloud(userId: string) {
   return Promise.all([
+    useWorkoutStore.getState().flushPendingSets(),
     useProgramStore.getState().refreshFromRemote(userId),
     useCoachStore.getState().refresh(),
     useFoodLogStore.getState().refreshToday(),

@@ -5,17 +5,30 @@ import { getCurrentUserId } from '../lib/session';
 import { supabase } from '../lib/supabase';
 import { Gender, Profile } from '../types';
 
+// Typing a name or a weight fires onChange per keystroke; wait for a pause
+// so the server gets one update per field instead of one per character.
+const syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const SYNC_DEBOUNCE_MS = 600;
+
 function syncProfileField(
   field: 'display_name' | 'gender' | 'height_cm' | 'weight_kg' | 'avatar_url' | 'share_food_log',
   value: unknown
 ) {
   const userId = getCurrentUserId();
   if (!userId) return;
-  supabase
-    .from('profiles')
-    .update({ [field]: value })
-    .eq('id', userId)
-    .then(({ error }) => error && console.warn('Supabase profile update failed', error));
+  const pending = syncTimers.get(field);
+  if (pending) clearTimeout(pending);
+  syncTimers.set(
+    field,
+    setTimeout(() => {
+      syncTimers.delete(field);
+      supabase
+        .from('profiles')
+        .update({ [field]: value })
+        .eq('id', userId)
+        .then(({ error }) => error && console.warn('Supabase profile update failed', error));
+    }, SYNC_DEBOUNCE_MS)
+  );
 }
 
 interface ProfileState {

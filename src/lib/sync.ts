@@ -6,6 +6,7 @@ import { useCoachStore } from '../store/coachStore';
 import { useFoodLogStore } from '../store/foodLogStore';
 import { useWorkoutStore } from '../store/workoutStore';
 import { ExerciseSlug, Language, Role, WeeklyProgram } from '../types';
+import { isUuid } from './id';
 import { supabase } from './supabase';
 
 async function hasRemoteData(userId: string): Promise<boolean> {
@@ -42,16 +43,25 @@ async function pushLocalDataToCloud(userId: string) {
     .eq('id', userId);
 
   if (sets.length > 0) {
-    await supabase.from('workout_sets').insert(
-      sets.map((s) => ({
-        user_id: userId,
-        exercise_slug: s.exerciseSlug,
-        weight_kg: s.weightKg,
-        reps: s.reps,
-        is_pr: s.isPr,
-        performed_at: s.performedAt,
-      }))
-    );
+    const toRow = (s: (typeof sets)[number]) => ({
+      user_id: userId,
+      exercise_slug: s.exerciseSlug,
+      weight_kg: s.weightKg,
+      reps: s.reps,
+      is_pr: s.isPr,
+      performed_at: s.performedAt,
+    });
+    // uuid-id sets keep their id (so local and cloud agree and a later
+    // retry can't duplicate them); older sets with legacy ids get fresh ones.
+    const withId = sets.filter((s) => isUuid(s.id));
+    const legacy = sets.filter((s) => !isUuid(s.id));
+    const results = await Promise.all([
+      withId.length > 0
+        ? supabase.from('workout_sets').upsert(withId.map((s) => ({ id: s.id, ...toRow(s) })), { onConflict: 'id' })
+        : null,
+      legacy.length > 0 ? supabase.from('workout_sets').insert(legacy.map(toRow)) : null,
+    ]);
+    if (results.every((r) => !r || !r.error)) useWorkoutStore.setState({ pendingSyncIds: [] });
   }
 
   if (unlockedAchievementSlugs.length > 0) {
@@ -110,15 +120,22 @@ async function pullCloudDataToLocal(userId: string) {
   }
 
   if (setsRes.data) {
+    const remote = setsRes.data.map((r) => ({
+      id: r.id as string,
+      exerciseSlug: r.exercise_slug as ExerciseSlug,
+      weightKg: Number(r.weight_kg),
+      reps: r.reps as number,
+      isPr: r.is_pr as boolean,
+      performedAt: r.performed_at as string,
+    }));
+    // Sets logged offline or as a guest haven't reached the cloud yet —
+    // keep them on top of what we pulled instead of replacing them.
+    const local = useWorkoutStore.getState();
+    const remoteIds = new Set(remote.map((s) => s.id));
+    const unsynced = local.sets.filter((s) => local.pendingSyncIds.includes(s.id) && !remoteIds.has(s.id));
     useWorkoutStore.setState({
-      sets: setsRes.data.map((r) => ({
-        id: r.id,
-        exerciseSlug: r.exercise_slug as ExerciseSlug,
-        weightKg: Number(r.weight_kg),
-        reps: r.reps,
-        isPr: r.is_pr,
-        performedAt: r.performed_at,
-      })),
+      sets: [...remote, ...unsynced],
+      pendingSyncIds: unsynced.map((s) => s.id),
     });
   }
 
@@ -153,6 +170,7 @@ export async function syncOnSignIn(userId: string) {
   } else {
     await pushLocalDataToCloud(userId);
   }
+  await useWorkoutStore.getState().flushPendingSets();
   await Promise.all([useCoachStore.getState().refresh(), useFoodLogStore.getState().refreshToday()]);
 }
 
@@ -162,7 +180,7 @@ export async function syncOnSignIn(userId: string) {
 // migrate" the next time someone signs into a *different* account on this
 // device, leaking one account's workouts/program into another's.
 function resetLocalDataForSignOut() {
-  useWorkoutStore.setState({ sets: [], unlockedAchievementSlugs: [], unlockedAt: {} });
+  useWorkoutStore.setState({ sets: [], pendingSyncIds: [], unlockedAchievementSlugs: [], unlockedAt: {} });
   useProgramStore.setState({ week: emptyWeek() });
   useProfileStore.setState((state) => ({
     profile: {
