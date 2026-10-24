@@ -1,8 +1,9 @@
-import { X } from 'lucide-react-native';
+import { Check, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -13,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useT } from '../i18n/useT';
 import { TranslationKey } from '../i18n/translations';
-import { WEB_APP_URL } from '../lib/config';
+import { PRIVACY_URL, WEB_APP_URL } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import { syncOnSignIn } from '../lib/sync';
 import { Colors, fonts, useColors } from '../theme';
@@ -56,6 +57,7 @@ export function AuthOverlay({ onClose }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [consent, setConsent] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -75,6 +77,7 @@ export function AuthOverlay({ onClose }: Props) {
     setError(null);
     setNotice(null);
     setNeedsResend(false);
+    setConsent(false);
   }
 
   async function handleSubmit() {
@@ -86,6 +89,7 @@ export function AuthOverlay({ onClose }: Props) {
       setError(t('auth.errEmail'));
       return;
     }
+    if (mode === 'signUp' && !consent) return;
     if (mode === 'signUp' && password.length < MIN_PASSWORD) {
       setError(t('auth.errShortPassword'));
       return;
@@ -223,14 +227,37 @@ export function AuthOverlay({ onClose }: Props) {
                   </>
                 )}
 
+                {mode === 'signUp' && (
+                  <View style={styles.consentBlock}>
+                    <Pressable
+                      style={styles.consentRow}
+                      onPress={() => setConsent((c) => !c)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: consent }}
+                      accessibilityLabel={t('auth.consent')}
+                    >
+                      <View style={[styles.checkbox, consent && styles.checkboxChecked]}>
+                        {consent && <Check size={14} color={colors.background} strokeWidth={3.5} />}
+                      </View>
+                      <Text style={styles.consentText}>{t('auth.consent')}</Text>
+                    </Pressable>
+                    <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+                      <Text style={styles.consentLink}>{t('auth.privacyPolicy')}</Text>
+                    </Pressable>
+                  </View>
+                )}
+
                 {error && <Text style={styles.error}>{error}</Text>}
                 {notice && <Text style={styles.notice}>{notice}</Text>}
                 {needsResend && resendButton}
 
                 <Pressable
-                  style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+                  style={[
+                    styles.primaryButton,
+                    (loading || (mode === 'signUp' && !consent)) && styles.primaryButtonDisabled,
+                  ]}
                   onPress={handleSubmit}
-                  disabled={loading || !email || (mode !== 'reset' && !password)}
+                  disabled={loading || !email || (mode !== 'reset' && !password) || (mode === 'signUp' && !consent)}
                 >
                   {loading ? (
                     <ActivityIndicator color={colors.background} />
@@ -292,6 +319,29 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
     fontWeight: '600',
   },
   hint: { color: colors.muted, fontSize: 12, marginTop: 8 },
+  consentBlock: { marginTop: 18 },
+  consentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: { backgroundColor: colors.lime, borderColor: colors.lime },
+  consentText: { flex: 1, color: colors.muted, fontSize: 12, lineHeight: 18 },
+  consentLink: {
+    color: colors.lime,
+    fontSize: 12,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+    marginTop: 8,
+    marginLeft: 34,
+  },
   error: { color: colors.orange, fontSize: 13, fontWeight: '600', marginTop: 14, lineHeight: 19 },
   notice: { color: colors.lime, fontSize: 13, fontWeight: '600', marginTop: 14, lineHeight: 19 },
   primaryButton: {

@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -29,6 +30,7 @@ import { useT } from '../i18n/useT';
 import { fetchMyCheckinDay, fetchMyCheckins, submitCheckin } from '../lib/coaching';
 import { getPublicImageUrl, getSignedImageUrl, pickImage, uploadImage } from '../lib/media';
 import { notifyOther, requestNotificationPermission, unregisterPushToken } from '../lib/notifications';
+import { PRIVACY_URL } from '../lib/config';
 import { supabase } from '../lib/supabase';
 import { unitKeyFor } from '../lib/metric';
 import { parseDecimal } from '../lib/numbers';
@@ -272,6 +274,10 @@ export function ProfileScreen() {
               </Text>
             </Pressable>
           </View>
+
+          <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} style={styles.deleteAccountLink}>
+            <Text style={styles.deleteAccountLinkText}>{t('auth.privacyPolicy')}</Text>
+          </Pressable>
 
           {session && (
             <Pressable onPress={() => setDeleteOpen(true)} style={styles.deleteAccountLink}>
