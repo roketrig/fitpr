@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { ChevronLeft, ChevronRight, Check, Flame } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Check, Flame, Pencil, Trash2 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -78,6 +78,7 @@ export function WorkoutScreen() {
     badges: [],
   });
 
+  const scrollRef = useRef<ScrollView>(null);
   const cardAnim = useRef(new Animated.Value(1)).current;
   // +1 when moving to the next exercise, -1 to the previous: the card slides in from that side.
   const slideDir = useRef(1);
@@ -93,6 +94,8 @@ export function WorkoutScreen() {
   const gender = useProfileStore((s) => s.profile.gender);
   const sets = useWorkoutStore((s) => s.sets);
   const addSet = useWorkoutStore((s) => s.addSet);
+  const updateSet = useWorkoutStore((s) => s.updateSet);
+  const deleteSet = useWorkoutStore((s) => s.deleteSet);
   const personalBestFor = useWorkoutStore((s) => s.personalBestFor);
 
   const personalBest = personalBestFor(activeSlug);
@@ -131,8 +134,20 @@ export function WorkoutScreen() {
       : suggestedNextValue(sets, activeSlug, personalBestFor(activeSlug), programEntry?.targetReps)
   );
 
+  // The set being corrected (its values are loaded into the steppers), and
+  // the one waiting for a second tap on the trash icon to be deleted.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+    const timer = setTimeout(() => setConfirmDeleteId(null), 3000);
+    return () => clearTimeout(timer);
+  }, [confirmDeleteId]);
+
   function selectExercise(nextIndex: number) {
     if (activeSlugs.length === 0) return;
+    setEditingId(null);
+    setConfirmDeleteId(null);
     const wrapped = (nextIndex + activeSlugs.length) % activeSlugs.length;
     slideDir.current = nextIndex >= exerciseIndex ? 1 : -1;
     setExerciseIndex(wrapped);
@@ -148,8 +163,22 @@ export function WorkoutScreen() {
   }
 
   const currentValue = exercise.metric === 'weight_reps' ? weightKg : reps;
-  const willBePr = currentValue > personalBest;
+  const editingIndex = session.todaysSets.findIndex((s) => s.id === editingId);
+  const isEditing = editingIndex >= 0;
+  const willBePr = !isEditing && currentValue > personalBest;
   const setsCompleted = Math.min(session.todaysSets.length, targetSets);
+
+  // When this exercise is finished, offer the next one that still has sets to do.
+  const nextPendingIndex = useMemo(() => {
+    for (let step = 1; step < activeSlugs.length; step++) {
+      const i = (exerciseIndex + step) % activeSlugs.length;
+      const entry = programToday.find((p) => p.exerciseSlug === activeSlugs[i]);
+      const target = entry?.targetSets ?? SETS_PER_SESSION;
+      if (sessionStatsFor(sets, activeSlugs[i]).todaysSets.length < target) return i;
+    }
+    return -1;
+  }, [activeSlugs, exerciseIndex, programToday, sets]);
+  const showNextExercise = !isEditing && setsCompleted >= targetSets && nextPendingIndex >= 0;
 
   const allDoneToday = useMemo(
     () =>
@@ -188,19 +217,68 @@ export function WorkoutScreen() {
   const [saveBurst, setSaveBurst] = useState(0);
   const [lastSaved, setLastSaved] = useState('');
 
+  function summarize(weight: number, value: number) {
+    return exercise.metric === 'weight_reps'
+      ? `${weight} ${unitLabel('kg')} × ${value}`
+      : exercise.metric === 'time_seconds'
+        ? `${formatSeconds(value)} ${unitLabel('sec')}`
+        : `${value} ${unitLabel('reps')}`;
+  }
+
+  function startEdit(setToEdit: (typeof session.todaysSets)[number]) {
+    setConfirmDeleteId(null);
+    setEditingId(setToEdit.id);
+    if (exercise.metric === 'weight_reps') setWeightKg(setToEdit.weightKg);
+    setReps(setToEdit.reps);
+  }
+
+  // Back to the usual "next set" values once a correction is saved or abandoned.
+  function endEdit() {
+    setEditingId(null);
+    if (exercise.metric === 'weight_reps') {
+      setWeightKg(suggestedNextValue(sets, activeSlug, personalBest));
+      setReps(targetReps);
+    } else {
+      setReps(suggestedNextValue(sets, activeSlug, personalBest, programEntry?.targetReps));
+    }
+  }
+
+  function handleDelete(id: string) {
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id);
+      return;
+    }
+    setConfirmDeleteId(null);
+    if (id === editingId) setEditingId(null);
+    deleteSet(id);
+  }
+
+  function goToNextExercise() {
+    selectExercise(nextPendingIndex);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
   function handleSave() {
     // Deferred a frame so the press-out spring (which fires in the same
     // tick as this) actually gets to start before addSet's heavier
     // synchronous work (achievement checks, a store update that re-renders
     // this whole screen) runs — without this the two competed for the JS
     // thread right at release and the button felt like it stuttered.
+    if (isEditing) {
+      const editedId = editingId!;
+      const editedNumber = editingIndex + 1;
+      const editedSummary = summarize(weightKg, reps);
+      requestAnimationFrame(() => {
+        updateSet(editedId, exercise.metric === 'weight_reps' ? weightKg : 0, reps);
+        setLastSaved(t('workout.setUpdatedToast', { n: editedNumber, summary: editedSummary }));
+        setSaveBurst((b) => b + 1);
+        hapticSuccess();
+        endEdit();
+      });
+      return;
+    }
     const setNumber = session.todaysSets.length + 1;
-    const summary =
-      exercise.metric === 'weight_reps'
-        ? `${weightKg} ${unitLabel('kg')} × ${reps}`
-        : exercise.metric === 'time_seconds'
-          ? `${formatSeconds(reps)} ${unitLabel('sec')}`
-          : `${reps} ${unitLabel('reps')}`;
+    const summary = summarize(weightKg, reps);
     requestAnimationFrame(() => {
       const { isPr, newBadges } = addSet(
         activeSlug,
@@ -219,7 +297,7 @@ export function WorkoutScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         <AppHeader />
 
         <View style={styles.section}>
@@ -368,8 +446,13 @@ export function WorkoutScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardLabel}>
-              {t('workout.logSet')} {setsCompleted + 1}
+              {isEditing ? t('workout.editingSet', { n: editingIndex + 1 }) : `${t('workout.logSet')} ${setsCompleted + 1}`}
             </Text>
+            {isEditing && (
+              <Pressable onPress={endEdit} hitSlop={8}>
+                <Text style={styles.cancelEdit}>{t('workout.cancelEdit')}</Text>
+              </Pressable>
+            )}
           </View>
 
           <SetProgress total={targetSets} completed={setsCompleted} />
@@ -395,13 +478,62 @@ export function WorkoutScreen() {
 
           <View style={styles.saveWrap}>
             <SaveSetButton
-              label={willBePr ? t('workout.saveSetPr') : t('workout.saveSet')}
-              savedLabel={t('workout.saved')}
+              label={isEditing ? t('workout.updateSet') : willBePr ? t('workout.saveSetPr') : t('workout.saveSet')}
+              savedLabel={isEditing ? t('workout.updated') : t('workout.saved')}
               toastText={lastSaved}
               burst={saveBurst}
               onPress={handleSave}
             />
           </View>
+
+          {showNextExercise && (
+            <FadeIn pop key={activeSlug} style={styles.nextWrap}>
+              <Pressable style={styles.nextButton} onPress={goToNextExercise}>
+                <Text style={styles.nextButtonText} numberOfLines={1}>
+                  {t('workout.nextExercise', { name: exerciseName(activeSlugs[nextPendingIndex]) })}
+                </Text>
+                <ChevronRight size={18} color={colors.lime} />
+              </Pressable>
+            </FadeIn>
+          )}
+
+          {session.todaysSets.length > 0 && (
+            <View style={styles.setsList}>
+              <Text style={styles.cardLabel}>{t('workout.todaysSets')}</Text>
+              {session.todaysSets.map((s, i) => {
+                const editingThis = s.id === editingId;
+                const confirming = s.id === confirmDeleteId;
+                return (
+                  <View key={s.id} style={[styles.setRow, editingThis && styles.setRowActive]}>
+                    <Text style={styles.setRowNumber}>{i + 1}</Text>
+                    <Text style={styles.setRowValue}>{summarize(s.weightKg, s.reps)}</Text>
+                    {s.isPr && <Text style={styles.setRowPr}>PR</Text>}
+                    <View style={{ flex: 1 }} />
+                    <Pressable
+                      style={styles.setRowIcon}
+                      onPress={() => startEdit(s)}
+                      accessibilityLabel={t('workout.editSet')}
+                      hitSlop={6}
+                    >
+                      <Pencil size={16} color={editingThis ? colors.lime : colors.muted} />
+                    </Pressable>
+                    <Pressable
+                      style={[styles.setRowIcon, confirming && styles.setRowDeleteConfirm]}
+                      onPress={() => handleDelete(s.id)}
+                      accessibilityLabel={t('workout.deleteSet')}
+                      hitSlop={6}
+                    >
+                      {confirming ? (
+                        <Text style={styles.setRowDeleteText}>{t('workout.deleteConfirm')}</Text>
+                      ) : (
+                        <Trash2 size={16} color={colors.muted} />
+                      )}
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         <View style={styles.statRowWrap}>
@@ -555,5 +687,46 @@ const makeStyles = (colors: Colors) => StyleSheet.create({
   pbDate: { flex: 1, color: colors.muted, fontSize: 11, fontWeight: '600', textAlign: 'right' },
   stepperRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
   saveWrap: { marginTop: 16 },
+  cancelEdit: { color: colors.orange, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  nextWrap: { marginTop: 12 },
+  nextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: colors.lime,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  nextButtonText: { color: colors.lime, fontSize: 14, fontWeight: '800', letterSpacing: 0.5, flexShrink: 1 },
+  setsList: { marginTop: 18, gap: 8 },
+  setRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingLeft: 14,
+    paddingRight: 6,
+    minHeight: 46,
+  },
+  setRowActive: { borderColor: colors.lime },
+  setRowNumber: { color: colors.muted, fontSize: 12, fontWeight: '800', width: 14 },
+  setRowValue: { color: colors.foreground, fontSize: 15, fontWeight: '700' },
+  setRowPr: { color: colors.lime, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  setRowIcon: {
+    minWidth: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  setRowDeleteConfirm: { backgroundColor: colors.orange },
+  setRowDeleteText: { color: colors.background, fontSize: 11, fontWeight: '800' },
   statRowWrap: { marginHorizontal: 16 },
 });

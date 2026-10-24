@@ -26,6 +26,8 @@ interface WorkoutState {
   // Ids of sets the cloud hasn't confirmed yet (offline, guest, or a failed
   // request). They stay local and are retried, never silently dropped.
   pendingSyncIds: string[];
+  // Sets deleted locally whose cloud row still has to go.
+  pendingDeleteIds: string[];
   flushPendingSets: () => Promise<void>;
   personalBestFor: (exerciseSlug: ExerciseSlug) => number;
   setsFor: (exerciseSlug: ExerciseSlug) => WorkoutSet[];
@@ -35,6 +37,8 @@ interface WorkoutState {
     reps: number,
     gender: Gender | null
   ) => AddSetResult;
+  updateSet: (id: string, weightKg: number, reps: number) => void;
+  deleteSet: (id: string) => void;
 }
 
 // Sets carry their own uuid, so retrying after a lost response can't create
@@ -58,6 +62,39 @@ async function pushSetToCloud(set: WorkoutSet): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+async function deleteSetFromCloud(id: string): Promise<boolean> {
+  const { error } = await supabase.from('workout_sets').delete().eq('id', id);
+  if (error) {
+    console.warn('Supabase set delete failed', error);
+    return false;
+  }
+  return true;
+}
+
+function markDeleted(ids: string[]) {
+  if (ids.length === 0) return;
+  useWorkoutStore.setState((state) => ({
+    pendingDeleteIds: state.pendingDeleteIds.filter((id) => !ids.includes(id)),
+  }));
+}
+
+// A set is a PR when it beat everything logged before it, so after an edit
+// or delete the flags for that exercise are worked out again in order.
+function withRecomputedPrFlags(sets: WorkoutSet[], exerciseSlug: ExerciseSlug): WorkoutSet[] {
+  const metric = getExercise(exerciseSlug).metric;
+  const ordered = sets
+    .filter((s) => s.exerciseSlug === exerciseSlug)
+    .sort((a, b) => a.performedAt.localeCompare(b.performedAt));
+  let best = 0;
+  const flags = new Map<string, boolean>();
+  for (const s of ordered) {
+    const value = primaryValueOf(s, metric);
+    flags.set(s.id, value > best);
+    best = Math.max(best, value);
+  }
+  return sets.map((s) => (flags.has(s.id) && flags.get(s.id) !== s.isPr ? { ...s, isPr: flags.get(s.id)! } : s));
 }
 
 function markSynced(ids: string[]) {
@@ -86,13 +123,18 @@ export const useWorkoutStore = create<WorkoutState>()(
       unlockedAchievementSlugs: [],
       unlockedAt: {},
       pendingSyncIds: [],
+      pendingDeleteIds: [],
 
       flushPendingSets: async () => {
         if (!getCurrentUserId()) return;
-        const { sets, pendingSyncIds } = get();
+        const { sets, pendingSyncIds, pendingDeleteIds } = get();
         const pending = sets.filter((s) => pendingSyncIds.includes(s.id));
-        const results = await Promise.all(pending.map(async (s) => ((await pushSetToCloud(s)) ? s.id : null)));
-        markSynced(results.filter((id): id is string => id !== null));
+        const [pushed, deleted] = await Promise.all([
+          Promise.all(pending.map(async (s) => ((await pushSetToCloud(s)) ? s.id : null))),
+          Promise.all(pendingDeleteIds.map(async (id) => ((await deleteSetFromCloud(id)) ? id : null))),
+        ]);
+        markSynced(pushed.filter((id): id is string => id !== null));
+        markDeleted(deleted.filter((id): id is string => id !== null));
       },
 
       personalBestFor: (exerciseSlug) => {
@@ -166,6 +208,41 @@ export const useWorkoutStore = create<WorkoutState>()(
         syncBadgesToCloud(newSlugs, unlockedAt);
 
         return { isPr, newBadges };
+      },
+
+      updateSet: (id, weightKg, reps) => {
+        const target = get().sets.find((s) => s.id === id);
+        if (!target) return;
+        const before = get().sets;
+        const edited = before.map((s) => (s.id === id ? { ...s, weightKg, reps } : s));
+        const after = withRecomputedPrFlags(edited, target.exerciseSlug);
+        // Only sets with a cloud-compatible id can be updated there; the
+        // changed ones (the edited set plus any whose PR flag moved) go up.
+        const changed = after.filter((s, i) => s !== before[i] && isUuid(s.id));
+        set((state) => ({
+          sets: after,
+          pendingSyncIds: [...new Set([...state.pendingSyncIds, ...changed.map((s) => s.id)])],
+        }));
+        changed.forEach((s) => pushSetToCloud(s).then((ok) => ok && markSynced([s.id])));
+      },
+
+      deleteSet: (id) => {
+        const target = get().sets.find((s) => s.id === id);
+        if (!target) return;
+        const remaining = get().sets.filter((s) => s.id !== id);
+        const after = withRecomputedPrFlags(remaining, target.exerciseSlug);
+        const changed = after.filter((s, i) => s !== remaining[i] && isUuid(s.id));
+        const signedIn = !!getCurrentUserId();
+        const cloudDelete = signedIn && isUuid(id);
+        set((state) => ({
+          sets: after,
+          pendingSyncIds: [
+            ...new Set([...state.pendingSyncIds.filter((p) => p !== id), ...changed.map((s) => s.id)]),
+          ],
+          pendingDeleteIds: cloudDelete ? [...state.pendingDeleteIds, id] : state.pendingDeleteIds,
+        }));
+        if (cloudDelete) deleteSetFromCloud(id).then((ok) => ok && markDeleted([id]));
+        changed.forEach((s) => pushSetToCloud(s).then((ok) => ok && markSynced([s.id])));
       },
     }),
     {

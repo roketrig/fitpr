@@ -130,11 +130,13 @@ async function pullCloudDataToLocal(userId: string) {
     }));
     // Sets logged offline or as a guest haven't reached the cloud yet —
     // keep them on top of what we pulled instead of replacing them.
+    // Edited sets are in that group too (their local version wins), and sets
+    // deleted locally but not yet removed in the cloud stay gone.
     const local = useWorkoutStore.getState();
-    const remoteIds = new Set(remote.map((s) => s.id));
-    const unsynced = local.sets.filter((s) => local.pendingSyncIds.includes(s.id) && !remoteIds.has(s.id));
+    const unsynced = local.sets.filter((s) => local.pendingSyncIds.includes(s.id));
+    const skip = new Set([...unsynced.map((s) => s.id), ...local.pendingDeleteIds]);
     useWorkoutStore.setState({
-      sets: [...remote, ...unsynced],
+      sets: [...remote.filter((s) => !skip.has(s.id)), ...unsynced],
       pendingSyncIds: unsynced.map((s) => s.id),
     });
   }
@@ -180,7 +182,7 @@ export async function syncOnSignIn(userId: string) {
 // migrate" the next time someone signs into a *different* account on this
 // device, leaking one account's workouts/program into another's.
 function resetLocalDataForSignOut() {
-  useWorkoutStore.setState({ sets: [], pendingSyncIds: [], unlockedAchievementSlugs: [], unlockedAt: {} });
+  useWorkoutStore.setState({ sets: [], pendingSyncIds: [], pendingDeleteIds: [], unlockedAchievementSlugs: [], unlockedAt: {} });
   useProgramStore.setState({ week: emptyWeek() });
   useProfileStore.setState((state) => ({
     profile: {
